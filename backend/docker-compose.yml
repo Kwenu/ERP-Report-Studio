@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: erp_report_studio_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: erp_report_studio
+      POSTGRES_USER: erp_app
+      POSTGRES_PASSWORD: erp_app_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - erp_report_studio_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp_app -d erp_report_studio"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  erp_report_studio_data:
