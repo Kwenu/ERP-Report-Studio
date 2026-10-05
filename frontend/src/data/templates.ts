@@ -98,8 +98,8 @@ export const salesByCustomerDetail: ReportDefinition = {
   category: 'Sales',
   dataset: 'salesLines',
   basis: 'Accrual',
-  dateFrom: '2023-04-01',
-  dateTo: '2023-04-30',
+  dateFrom: '2026-09-01',
+  dateTo: '2026-09-30',
   groupBy: 'name',
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
@@ -172,8 +172,8 @@ export const salesByRepDetail: ReportDefinition = {
   'Invoice line detail grouped by sales representative for the selected transaction date range.',
   category: 'Sales',
   dataset: 'salesLines',
-  dateFrom: '2023-05-08',
-  dateTo: '2023-05-08',
+  dateFrom: '2026-09-01',
+  dateTo: '2026-09-30',
   groupBy: 'rep',
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),

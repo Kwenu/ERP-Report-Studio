@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /* ------------------------------------------------------------------ *
  * Canonical ERP schema + dataset metadata.
  *
@@ -208,7 +209,7 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
     columns: {
       lineId: { dataType: 'integer', label: 'Line ID' },
       invoiceId: { dataType: 'integer', label: 'Invoice ID' },
-      customerId: { dataType: 'integer', label: 'Customer ID' },
+      customerId: { dataType: 'text', label: 'Customer ID' },
       date: { dataType: 'date', label: 'Date' },
       num: { dataType: 'text', label: 'Num' },
       name: { dataType: 'text', label: 'Name' },
@@ -227,11 +228,16 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       city: { dataType: 'text', label: 'City' },
       po: { dataType: 'text', label: 'P.O. #' },
       uom: { dataType: 'text', label: 'UOM' },
-      itemId: { dataType: 'integer', label: 'Item ID' },
-      repId: { dataType: 'integer', label: 'Rep ID' },
+      itemId: { dataType: 'text', label: 'Item ID' },
+      repId: { dataType: 'text', label: 'Rep ID' },
       email: { dataType: 'text', label: 'Email' },
       creditLimit: { dataType: 'currency', label: 'Credit Limit' },
-      memo: { dataType: 'text', label: 'Memo' }
+      memo: { dataType: 'text', label: 'Memo' },
+      other1: { dataType: 'text', label: 'Other 1' },
+      other2: { dataType: 'text', label: 'Other 2' },
+      address: { dataType: 'text', label: 'Address' },
+      phone: { dataType: 'text', label: 'Phone' },
+      territory: { dataType: 'text', label: 'Territory' }
     }
   },
   paymentTxns: {
@@ -254,7 +260,7 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       rep: { dataType: 'text', label: 'Sales Rep' },
       repName: { dataType: 'text', label: 'Rep Name' },
       status: { dataType: 'text', label: 'Status' },
-      customerId: { dataType: 'integer', label: 'Customer ID' }
+      customerId: { dataType: 'text', label: 'Customer ID' }
     }
   },
   openInvoices: {
@@ -274,12 +280,19 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       rep: { dataType: 'text', label: 'Sales Rep' },
       repName: { dataType: 'text', label: 'Rep Name' },
       status: { dataType: 'text', label: 'Status' },
-      customerId: { dataType: 'integer', label: 'Customer ID' },
+      customerId: { dataType: 'text', label: 'Customer ID' },
       invoiceId: { dataType: 'integer', label: 'Invoice ID' },
       city: { dataType: 'text', label: 'City' }
     }
   }
 };
+
+// Let each deployment point a dataset at its own view without editing code:
+//   DATASET_VIEW_SALESLINES=dbo.v_sales_lines  DATASET_VIEW_PAYMENTTXNS=...  DATASET_VIEW_OPENINVOICES=...
+for (const d of Object.values(DATASETS)) {
+  const override = process.env[`DATASET_VIEW_${d.id.toUpperCase()}`];
+  if (override) d.view = override;
+}
 
 export const totalTableCount = erpTables.length;
 export const totalFieldCount = allFields.length;

@@ -39,14 +39,22 @@ export function TestConnectionDialog({
     setSteps(connectionSteps.map((s) => ({ ...s, status: 'pending', detail: undefined })));
     setResult(null);
     setRunning(true);
-    const outcome = await testConnection(
-      source,
-      (stepId: string, status: StepStatus, detail?: string) =>
-      setSteps((prev) =>
-      prev.map((s) => s.id === stepId ? { ...s, status, detail } : s)
-      )
-    );
-    setRunning(false);
+    let outcome: TestConnectionResult;
+    try {
+      outcome = await testConnection(
+        source,
+        (stepId: string, status: StepStatus, detail?: string) =>
+        setSteps((prev) =>
+        prev.map((s) => s.id === stepId ? { ...s, status, detail } : s)
+        )
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setSteps((prev) => prev.map((s) => s.status === 'running' || s.status === 'pending' ? { ...s, status: 'failed', detail: message } : s));
+      outcome = { success: false, message, latencyMs: 0 };
+    } finally {
+      setRunning(false);
+    }
     setResult(outcome);
     onResult?.(outcome);
   }, [source, failAtStep, onResult]);

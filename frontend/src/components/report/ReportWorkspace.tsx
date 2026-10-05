@@ -10,7 +10,6 @@ import {
   SlidersHorizontalIcon } from
 'lucide-react';
 import type { ErpField, ReportColumn, ReportDefinition } from '../../types/erp';
-import { datasets } from '../../data/mockErpData';
 import { columnFromField, getTemplate, cloneDefinition } from '../../data/templates';
 import {
   aggregate,
@@ -90,8 +89,11 @@ export function ReportWorkspace({
 
   const visibleColumns = definition.columns.filter((c) => c.visible);
 
+  /* Studio → API → query engine → ERP database → rows */
+  const { meta: queryMeta, rerun, rows: remoteRows } = useErpQuery(definition, activeSource.name);
+
   const rows = useMemo(() => {
-    let data = datasets[definition.dataset] ?? [];
+    let data = remoteRows ?? [];
     const calcs = definition.calculatedFields ?? [];
     if (calcs.length) {
       data = data.map((row) => {
@@ -133,7 +135,7 @@ export function ReportWorkspace({
     }
     return applySort(data, definition.sort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [definition, search]);
+  }, [definition, search, remoteRows]);
 
   const aggOptions = { weighted: definition.weightedAverage, weightKey: 'amount' };
   const grandTotals = useMemo(
@@ -249,9 +251,6 @@ export function ReportWorkspace({
 
   const allGroupKeys = allGroups?.map((g) => g.key) ?? [];
   const allCollapsed = allGroupKeys.length > 0 && collapsedGroups.length === allGroupKeys.length;
-
-  /* Studio → API → query engine → ERP database → results */
-  const { meta: queryMeta, rerun } = useErpQuery(definition, rows.length, activeSource.name);
 
   const requestRefresh = () => {
     rerun();

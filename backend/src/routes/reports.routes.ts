@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { pool, query } from '../db/pool';
+import { query } from '../db/pool';
 import { asyncHandler } from '../utils/asyncHandler';
 import { requireAuth } from '../middleware/auth';
-import { buildReportQuery, QueryValidationError } from '../services/queryBuilder';
+import { buildReportQuery, buildCountParams, QueryValidationError } from '../services/queryBuilder';
+import { getReportConnector, NoDataSourceError } from '../db/erpConnector';
 import { DATASETS } from '../schema/metadata';
 import { logAudit } from '../services/audit';
 
@@ -54,6 +55,13 @@ reportsRouter.get(
 );
 
 reportsRouter.get(
+  '/meta/datasets',
+  asyncHandler(async (_req, res) => {
+    res.json({ datasets: Object.keys(DATASETS) });
+  })
+);
+
+reportsRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const result = await query('SELECT * FROM reports WHERE id = $1', [req.params.id]);
@@ -89,6 +97,13 @@ reportsRouter.post(
       rest: {}
     });
     const reportId = id ?? `custom-${uuidv4().slice(0, 8)}`;
+    if (id) {
+      const existing = await query('SELECT created_by FROM reports WHERE id = $1', [id]);
+      const owner = existing.rows[0]?.created_by;
+      if (owner && owner !== req.user!.sub && req.user!.role !== 'Administrator') {
+        return res.status(403).json({ error: 'Only the report owner or an administrator can change this report.' });
+      }
+    }
 
     const definition = { ...body, id: reportId, owner: req.user!.name, createdBy: req.user!.name };
 
@@ -221,9 +236,16 @@ reportsRouter.post(
     const started = Date.now();
     const input = queryBodySchema.parse(req.body);
 
+    let conn;
+    try {
+      conn = await getReportConnector();
+    } catch (err) {
+      if (err instanceof NoDataSourceError) return res.status(409).json({ error: err.message });
+      throw err;
+    }
     let built;
     try {
-      built = buildReportQuery(input);
+      built = buildReportQuery({ ...input, dialect: conn.dialect });
     } catch (err) {
       if (err instanceof QueryValidationError) {
         return res.status(400).json({ error: err.message });
@@ -231,10 +253,17 @@ reportsRouter.post(
       throw err;
     }
 
-    const [rowsResult, countResult] = await Promise.all([
-      pool.query(built.sql, built.params),
-      pool.query(built.countSql, built.params.slice(0, built.params.length - 2))
-    ]);
+    let rowsResult, countResult;
+    try {
+      [rowsResult, countResult] = await Promise.all([
+        conn.query(built.sql, built.params),
+        conn.query(built.countSql, buildCountParams(built))
+      ]);
+    } catch (err: any) {
+      // Typically: a view/column in db/erp_views.mssql.sql doesn't exist yet or the login lacks SELECT.
+      console.error('Report query failed:', err.message, '\nSQL:', built.sql);
+      return res.status(502).json({ error: `The ERP database rejected the query: ${err.message}` });
+    }
 
     if (input.reportId) {
       await query('UPDATE reports SET last_run = now() WHERE id = $1', [input.reportId]);
@@ -245,7 +274,8 @@ reportsRouter.post(
 
     res.json({
       rows: rowsResult.rows,
-      records: Number(countResult.rows[0]?.count ?? rowsResult.rowCount),
+      records: Number(countResult.rows[0]?.total ?? rowsResult.rows.length),
+      source: conn.label,
       executionMs: Date.now() - started,
       completedAt: new Date().toISOString(),
       queryDefinition: {
@@ -259,9 +289,3 @@ reportsRouter.post(
   })
 );
 
-reportsRouter.get(
-  '/meta/datasets',
-  asyncHandler(async (_req, res) => {
-    res.json({ datasets: Object.keys(DATASETS) });
-  })
-);

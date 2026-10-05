@@ -1,67 +1,51 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { QueryResultMeta, ReportDefinition } from '../types/erp';
-import { runQuery } from '../services/erpApi';
+import { useCallback, useEffect, useState } from 'react';
+import type { QueryResultMeta, ReportDefinition, Row } from '../types/erp';
+import { fetchDatasetRows } from '../services/erpApi';
 
 /**
- * Runs the report definition against the simulated backend whenever the
- * definition changes: Studio → API → Query Engine → ERP Database → results.
- * Row data is resolved locally for the prototype, but every state the UI
- * shows (running, record count, execution time, last updated) comes from
- * the round trip.
+ * Loads the report's rows from the ERP database through the backend whenever the
+ * dataset or date range changes (or Refresh is pressed):
+ *   Studio → API → Query Engine → ERP Database → rows
+ * Filters / grouping / sorting / totals are applied afterwards by the report engine.
  */
-export function useErpQuery(
-definition: ReportDefinition,
-filteredRecordCount: number,
-dataSourceName: string)
-{
-  const recordRef = useRef(filteredRecordCount);
-  recordRef.current = filteredRecordCount;
-
+export function useErpQuery(definition: ReportDefinition, dataSourceName: string) {
+  const [rows, setRows] = useState<Row[] | null>(null);
   const [meta, setMeta] = useState<QueryResultMeta>({
     state: 'idle',
-    records: filteredRecordCount,
+    records: 0,
     executionMs: 0,
     completedAt: new Date().toISOString(),
     dataSource: dataSourceName
   });
   const [nonce, setNonce] = useState(0);
 
-  const signature = JSON.stringify({
-    dataset: definition.dataset,
-    columns: definition.columns.filter((c) => c.visible).map((c) => c.key),
-    groupBy: definition.groupBy,
-    filters: definition.filters.map((f) => [f.key, f.operator, f.value, f.value2]),
-    sort: definition.sort.map((s) => [s.key, s.dir]),
-    from: definition.dateFrom,
-    to: definition.dateTo,
-    basis: definition.basis
-  });
-
   useEffect(() => {
-    const signal = { cancelled: false };
-    setMeta((prev) => ({ ...prev, state: 'running', dataSource: dataSourceName }));
-    runQuery(definition, signal).
-    then((response) => {
-      if (signal.cancelled) return;
-      setMeta({
-        state: 'complete',
-        records: recordRef.current,
-        executionMs: response.executionMs,
-        completedAt: response.completedAt,
-        dataSource: dataSourceName
+    let cancelled = false;
+    setMeta((prev) => ({ ...prev, state: 'running', error: undefined, dataSource: dataSourceName }));
+    fetchDatasetRows(definition)
+      .then((response) => {
+        if (cancelled) return;
+        setRows(response.rows as Row[]);
+        setMeta({
+          state: 'complete',
+          records: response.records,
+          executionMs: response.executionMs,
+          completedAt: response.completedAt,
+          dataSource: dataSourceName,
+          truncated: response.truncated
+        });
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setMeta((prev) => ({ ...prev, state: 'error', error: err.message }));
       });
-    }).
-    catch(() => {
-      if (signal.cancelled) return;
-      setMeta((prev) => ({ ...prev, state: 'error' }));
-    });
     return () => {
-      signal.cancelled = true;
+      cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, nonce, dataSourceName]);
+  }, [definition.dataset, definition.dateFrom, definition.dateTo, nonce, dataSourceName]);
 
   const rerun = useCallback(() => setNonce((n) => n + 1), []);
 
-  return { meta, rerun };
+  return { meta, rerun, rows };
 }

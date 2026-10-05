@@ -1,16 +1,35 @@
 import { useState } from 'react';
-import { LockIcon } from 'lucide-react';
+import { AlertTriangleIcon, LockIcon } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Field } from '../ui/Field';
 import type { DataSourceConnection } from '../../types/erp';
+import type { NewDataSource } from '../../services/erpApi';
 import { inputClass, selectClass } from '../../utils/ui';
 import { API_BASE } from '../../services/erpApi';
 
 interface AddDataSourceDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (source: DataSourceConnection) => void;
+  /** Must save the source in the backend; rejects with a readable Error if it cannot. */
+  onSave: (source: NewDataSource) => Promise<void>;
+}
+
+/** Catches typos such as "192.1681.215" before they turn into a long hang. */
+function validateAddress(server: string, port: string): string | null {
+  const host = server.trim();
+  if (!host) return 'Enter the server name or IP address.';
+  if (/\s/.test(host)) return 'The server name cannot contain spaces.';
+  if (host.includes(':')) return 'Do not put the port in the server field — use the Port box.';
+  if (/^[\d.]+$/.test(host)) {
+    const parts = host.split('.');
+    if (parts.length !== 4 || parts.some((p) => p === '' || Number(p) > 255)) {
+      return `"${host}" is not a valid IPv4 address (four numbers from 0 to 255, e.g. 192.168.1.215).`;
+    }
+  }
+  const n = Number(port);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) return 'The port must be a number between 1 and 65535.';
+  return null;
 }
 
 const databaseTypes = [
@@ -30,15 +49,17 @@ const defaultPorts: Record<string, string> = {
 };
 
 export function AddDataSourceDialog({ open, onClose, onSave }: AddDataSourceDialogProps) {
-  const [name, setName] = useState('ERP Reporting Replica');
+  const [name, setName] = useState('');
   const [databaseType, setDatabaseType] = useState('SQL Server');
-  const [server, setServer] = useState('ERP-SERVER-RO');
+  const [server, setServer] = useState('');
   const [port, setPort] = useState('1433');
-  const [database, setDatabase] = useState('PolydimeERP_RO');
+  const [database, setDatabase] = useState('');
   const [authMethod, setAuthMethod] =
-  useState<DataSourceConnection['authMethod']>('Windows Authentication');
-  const [username, setUsername] = useState('POLYDIME\\svc_reporting');
+  useState<DataSourceConnection['authMethod']>('Database Authentication');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const windowsAuth = authMethod === 'Windows Authentication';
 
@@ -54,26 +75,36 @@ export function AddDataSourceDialog({ open, onClose, onSave }: AddDataSourceDial
           <Button onClick={onClose}>Cancel</Button>
           <Button
           variant="primary"
-          disabled={!name.trim() || !server.trim() || !database.trim()}
-          onClick={() => {
-            onSave({
-              id: `ds-${Date.now()}`,
-              name: name.trim(),
-              databaseType,
-              server: server.trim(),
-              port,
-              database: database.trim(),
-              authMethod,
-              username: windowsAuth ? username : username.trim(),
-              status: 'Disconnected',
-              lastSchemaRefresh: '',
-              lastDataRefresh: '',
-              isPrimary: false
-            });
-            onClose();
+          disabled={saving || !name.trim() || !server.trim() || !database.trim() || windowsAuth}
+          onClick={async () => {
+            const problem = validateAddress(server, port);
+            if (problem) {
+              setError(problem);
+              return;
+            }
+            setError(null);
+            setSaving(true);
+            try {
+              await onSave({
+                name: name.trim(),
+                databaseType,
+                server: server.trim(),
+                port: port.trim(),
+                database: database.trim(),
+                authMethod,
+                username: username.trim(),
+                password
+              });
+              setPassword('');
+              onClose();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : String(err));
+            } finally {
+              setSaving(false);
+            }
           }}>
           
-            Save & test connection
+            {saving ? 'Saving…' : 'Save & test connection'}
           </Button>
         </>
       }>
@@ -149,11 +180,28 @@ export function AddDataSourceDialog({ open, onClose, onSave }: AddDataSourceDial
             type="password"
             className={inputClass}
             value={windowsAuth ? '' : password}
+            autoComplete="new-password"
             disabled={windowsAuth}
             placeholder={windowsAuth ? 'Not required for Windows Authentication' : '••••••••'}
             onChange={(e) => setPassword(e.target.value)} />
           
         </Field>
+
+        {windowsAuth &&
+        <p className="col-span-2 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-2xs text-amber-800">
+            <AlertTriangleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Windows Authentication is not supported by the backend's SQL Server driver. Create a
+              read-only SQL login and choose "Database Authentication".
+            </span>
+          </p>
+        }
+        {error &&
+        <p role="alert" className="col-span-2 flex items-start gap-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <AlertTriangleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{error}</span>
+          </p>
+        }
 
         <p className="col-span-2 flex items-start gap-2 rounded border border-line bg-surface-muted px-3 py-2 text-2xs leading-relaxed text-ink-500">
           <LockIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-600" />

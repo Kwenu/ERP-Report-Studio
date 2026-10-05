@@ -1,10 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type {
   AuditEntry,
   ReportDefinition,
   ScheduledReport,
   UserRole } from
 '../types/erp';
+import { fetchCurrentUser, logout } from '../services/authApi';
+import { getAuthToken, UNAUTHORIZED_EVENT } from '../services/http';
 import { auditLog as seedAudit, scheduledReports as seedSchedules } from '../data/adminData';
 import { cloneDefinition, fixedTemplates, makeColumn } from '../data/templates';
 
@@ -63,7 +65,9 @@ const seedCustomReports: ReportDefinition[] = [
 
 interface AppState {
   authenticated: boolean;
-  signIn: (role: UserRole) => void;
+  signIn: (role: UserRole, user?: { name: string; email: string }) => void;
+  /** True while a stored session token is being verified on page load. */
+  restoringSession: boolean;
   signOut: () => void;
   currentUser: {name: string;email: string;role: UserRole;initials: string;};
   setRole: (role: UserRole) => void;
@@ -95,6 +99,28 @@ export function AppProvider({
 }: {children: React.ReactNode;initialAuthenticated?: boolean;}) {
   const [authenticated, setAuthenticated] = useState(initialAuthenticated);
   const [role, setRole] = useState<UserRole>('Report Designer');
+  const [identity, setIdentity] = useState({ name: 'Chamila Perera', email: 'chamila.perera@polydime.lk' });
+  const [restoringSession, setRestoringSession] = useState(Boolean(getAuthToken()) && !initialAuthenticated);
+
+  // Returning visitor: verify the stored token instead of showing the sign-in page again.
+  useEffect(() => {
+    if (!restoringSession) return;
+    fetchCurrentUser()
+      .then((u) => {
+        setRole(u.role);
+        setIdentity({ name: u.name, email: u.email });
+        setAuthenticated(true);
+      })
+      .catch(() => logout())
+      .finally(() => setRestoringSession(false));
+  }, [restoringSession]);
+
+  // The backend rejected our token (expired after JWT_EXPIRES_IN, or the secret changed): back to sign-in.
+  useEffect(() => {
+    const onUnauthorized = () => setAuthenticated(false);
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
   const [savedReports, setSavedReports] = useState<ReportDefinition[]>(seedCustomReports);
   const [favorites, setFavorites] = useState<string[]>([
   'open-invoices',
@@ -110,12 +136,12 @@ export function AppProvider({
 
   const currentUser = useMemo(
     () => ({
-      name: 'Chamila Perera',
-      email: 'chamila.perera@polydime.lk',
+      name: identity.name,
+      email: identity.email,
       role,
-      initials: 'CP'
+      initials: identity.name.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase() || '?'
     }),
-    [role]
+    [role, identity]
   );
 
   const logAction = useCallback(
@@ -201,11 +227,16 @@ export function AppProvider({
 
   const value: AppState = {
     authenticated,
-    signIn: (nextRole: UserRole) => {
+    signIn: (nextRole: UserRole, user?: { name: string; email: string }) => {
       setRole(nextRole);
+      if (user) setIdentity(user);
       setAuthenticated(true);
     },
-    signOut: () => setAuthenticated(false),
+    restoringSession,
+    signOut: () => {
+      logout(); // drop the JWT too, otherwise a refresh would sign the person straight back in
+      setAuthenticated(false);
+    },
     currentUser,
     setRole,
     savedReports,

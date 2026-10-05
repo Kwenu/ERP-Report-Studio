@@ -36,6 +36,7 @@ export function QueryStatusBar({ meta, onRefresh, disabled }: QueryStatusBarProp
         <span className="tabular font-medium text-ink-900">
           {meta.records.toLocaleString()}
         </span>
+        {meta.truncated && <span className="ml-1 text-amber-700">(showing first 20,000 — narrow the date range)</span>}
       </span>
 
       <span
@@ -61,7 +62,7 @@ export function QueryStatusBar({ meta, onRefresh, disabled }: QueryStatusBarProp
         {meta.state === 'error' &&
         <>
             <TriangleAlertIcon className="h-3.5 w-3.5 text-red-600" />
-            <span className="text-red-700">Query failed — retry or check the connection</span>
+            <span className="text-red-700" title={meta.error}>Query failed — {meta.error ?? 'retry or check the connection'}</span>
           </>
         }
       </span>

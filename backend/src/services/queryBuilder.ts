@@ -1,5 +1,8 @@
 import { DATASETS, DatasetId } from '../schema/metadata';
 
+/** SQL flavour the query is generated for. Postgres = the bundled demo DB; mssql = SQL Server ERP. */
+export type Dialect = 'postgres' | 'mssql';
+
 /* ------------------------------------------------------------------ *
  * Turns a structured report query into parameterized SQL.
  *
@@ -58,14 +61,23 @@ export interface ReportQueryInput {
   dateKey?: string; // defaults to "date" when dateFrom/dateTo are supplied
   page?: number;
   pageSize?: number;
+  dialect?: Dialect; // defaults to 'postgres'
 }
 
 export class QueryValidationError extends Error {
   status = 400;
 }
 
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
+function quoteIdent(name: string, dialect: Dialect = 'postgres'): string {
+  return dialect === 'mssql' ? `[${name.replace(/]/g, ']]')}]` : `"${name.replace(/"/g, '""')}"`;
+}
+
+/** Quotes a (possibly schema-qualified, e.g. "dbo.v_sales_lines") view name part by part. */
+function quoteObjectName(name: string, dialect: Dialect): string {
+  return name
+    .split('.')
+    .map((part) => quoteIdent(part, dialect))
+    .join('.');
 }
 
 function assertColumn(datasetId: DatasetId, key: string): void {
@@ -88,9 +100,12 @@ export interface BuiltQuery {
   sql: string;
   countSql: string;
   params: any[];
+  dialect: Dialect;
 }
 
 export function buildReportQuery(input: ReportQueryInput): BuiltQuery {
+  const dialect: Dialect = input.dialect ?? 'postgres';
+  const mssql = dialect === 'mssql';
   const dataset = DATASETS[input.dataset];
   if (!dataset) {
     throw new QueryValidationError(`Unknown dataset "${input.dataset}".`);
@@ -107,16 +122,27 @@ export function buildReportQuery(input: ReportQueryInput): BuiltQuery {
   const dateKey = input.dateKey ?? 'date';
   if (input.dateFrom || input.dateTo) assertColumn(input.dataset, dateKey);
 
+  const q = (name: string) => quoteIdent(name, dialect);
+  const viewSql = quoteObjectName(dataset.view, dialect);
+  const asText = (col: string) => (mssql ? `CAST(${col} AS NVARCHAR(4000))` : `${col}::text`);
+
   const params: any[] = [];
   const push = (value: any) => {
     params.push(value);
-    return `$${params.length}`;
+    return mssql ? `@p${params.length}` : `$${params.length}`;
   };
+  // Dates are sent as ISO strings; on SQL Server convert explicitly (style 23 = yyyy-mm-dd)
+  // so the result never depends on the server's language / DATEFORMAT setting.
+  const pushDate = (value: any) => {
+    const ph = push(value);
+    return mssql ? `CONVERT(date, ${ph}, 23)` : ph;
+  };
+  const dateCol = (col: string, dataType: string) => (mssql && dataType === 'datetime' ? `CAST(${col} AS date)` : col);
 
   // ---- WHERE ----
   const whereParts: string[] = [];
-  if (input.dateFrom) whereParts.push(`${quoteIdent(dateKey)} >= ${push(input.dateFrom)}`);
-  if (input.dateTo) whereParts.push(`${quoteIdent(dateKey)} <= ${push(input.dateTo)}`);
+  if (input.dateFrom) whereParts.push(`${dateCol(q(dateKey), dataset.columns[dateKey].dataType)} >= ${pushDate(input.dateFrom)}`);
+  if (input.dateTo) whereParts.push(`${dateCol(q(dateKey), dataset.columns[dateKey].dataType)} <= ${pushDate(input.dateTo)}`);
 
   const activeFilters = (input.filters ?? []).filter(
     (f) => f.operator === 'is empty' || (f.value !== undefined && f.value !== '')
@@ -124,47 +150,71 @@ export function buildReportQuery(input: ReportQueryInput): BuiltQuery {
 
   let filterClause = '';
   activeFilters.forEach((f, idx) => {
-    const col = quoteIdent(f.key);
+    const col = q(f.key);
     const dataType = dataset.columns[f.key].dataType;
     const isNumeric = dataType === 'currency' || dataType === 'decimal' || dataType === 'integer';
+    const isDate = dataType === 'date' || dataType === 'datetime';
+    const num = (v: string | undefined) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) throw new QueryValidationError(`"${v}" is not a valid number for "${f.key}".`);
+      return n;
+    };
     let clause: string;
 
     switch (f.operator) {
       case 'is empty':
-        clause = `(${col} IS NULL OR ${col}::text = '')`;
+        clause = `(${col} IS NULL OR ${asText(col)} = '')`;
         break;
       case 'equals':
-        clause = isNumeric ? `${col} = ${push(Number(f.value))}` : `LOWER(${col}::text) = LOWER(${push(f.value)})`;
+        clause = isNumeric
+          ? `${col} = ${push(num(f.value))}`
+          : isDate
+          ? `${dateCol(col, dataType)} = ${pushDate(f.value)}`
+          : `LOWER(${asText(col)}) = LOWER(${push(f.value)})`;
         break;
       case 'not equals':
         clause = isNumeric
-          ? `${col} <> ${push(Number(f.value))}`
-          : `LOWER(${col}::text) <> LOWER(${push(f.value)})`;
+          ? `${col} <> ${push(num(f.value))}`
+          : isDate
+          ? `${dateCol(col, dataType)} <> ${pushDate(f.value)}`
+          : `LOWER(${asText(col)}) <> LOWER(${push(f.value)})`;
         break;
       case 'contains':
-        clause = `${col}::text ILIKE ${push(`%${f.value}%`)}`;
+        clause = mssql
+          ? `LOWER(${asText(col)}) LIKE LOWER(${push(`%${f.value}%`)})`
+          : `${asText(col)} ILIKE ${push(`%${f.value}%`)}`;
         break;
       case 'greater than':
-        clause = isNumeric ? `${col} > ${push(Number(f.value))}` : `${col}::text > ${push(f.value)}`;
+        clause = isNumeric
+          ? `${col} > ${push(num(f.value))}`
+          : isDate
+          ? `${dateCol(col, dataType)} > ${pushDate(f.value)}`
+          : `${asText(col)} > ${push(f.value)}`;
         break;
       case 'less than':
-        clause = isNumeric ? `${col} < ${push(Number(f.value))}` : `${col}::text < ${push(f.value)}`;
+        clause = isNumeric
+          ? `${col} < ${push(num(f.value))}`
+          : isDate
+          ? `${dateCol(col, dataType)} < ${pushDate(f.value)}`
+          : `${asText(col)} < ${push(f.value)}`;
         break;
       case 'on or after':
-        clause = `${col} >= ${push(f.value)}`;
+        clause = isDate ? `${dateCol(col, dataType)} >= ${pushDate(f.value)}` : `${col} >= ${push(f.value)}`;
         break;
       case 'on or before':
-        clause = `${col} <= ${push(f.value)}`;
+        clause = isDate ? `${dateCol(col, dataType)} <= ${pushDate(f.value)}` : `${col} <= ${push(f.value)}`;
         break;
       case 'is between':
         if (isNumeric) {
-          clause = `${col} BETWEEN ${push(Number(f.value))} AND ${push(Number(f.value2 ?? f.value))}`;
+          clause = `${col} BETWEEN ${push(num(f.value))} AND ${push(num(f.value2 ?? f.value))}`;
+        } else if (isDate) {
+          clause = `${dateCol(col, dataType)} BETWEEN ${pushDate(f.value)} AND ${pushDate(f.value2 ?? f.value)}`;
         } else {
-          clause = `${col}::text BETWEEN ${push(f.value)} AND ${push(f.value2 ?? f.value)}`;
+          clause = `${asText(col)} BETWEEN ${push(f.value)} AND ${push(f.value2 ?? f.value)}`;
         }
         break;
       default:
-        clause = 'TRUE';
+        clause = '1=1';
     }
 
     if (idx === 0) {
@@ -187,51 +237,66 @@ export function buildReportQuery(input: ReportQueryInput): BuiltQuery {
 
   if (groupBy || hasAggregation) {
     const selectParts: string[] = [];
-    if (groupBy) selectParts.push(`${quoteIdent(groupBy)} AS ${quoteIdent(groupBy)}`);
+    if (groupBy) selectParts.push(`${q(groupBy)} AS ${q(groupBy)}`);
     columns.forEach((c) => {
       if (c.key === groupBy) return;
       if (c.aggregation && c.aggregation !== 'none') {
         const fn = AGG_SQL[c.aggregation];
-        selectParts.push(`${fn}(${quoteIdent(c.key)}) AS ${quoteIdent(c.key)}`);
+        const colType = dataset.columns[c.key].dataType;
+        const numericCol = colType === 'currency' || colType === 'decimal' || colType === 'integer';
+        if ((c.aggregation === 'sum' || c.aggregation === 'avg') && !numericCol) {
+          throw new QueryValidationError(`Cannot ${c.aggregation} the non-numeric column "${c.key}".`);
+        }
+        selectParts.push(`${fn}(${q(c.key)}) AS ${q(c.key)}`);
       } else {
         // Non-aggregated column alongside GROUP BY: use a value-agnostic aggregate
         // so the query stays valid SQL (MIN is arbitrary-but-deterministic per group).
-        selectParts.push(`MIN(${quoteIdent(c.key)}::text) AS ${quoteIdent(c.key)}`);
+        selectParts.push(`MIN(${asText(q(c.key))}) AS ${q(c.key)}`);
       }
     });
     selectSql = selectParts.join(', ');
-    if (groupBy) groupBySql = `GROUP BY ${quoteIdent(groupBy)}`;
+    if (groupBy) groupBySql = `GROUP BY ${q(groupBy)}`;
   } else {
-    selectSql = columns.map((c) => quoteIdent(c.key)).join(', ');
+    selectSql = columns.map((c) => q(c.key)).join(', ');
   }
 
   // ---- ORDER BY ----
   const sort = input.sort ?? [];
-  const orderSql = sort.length
-    ? `ORDER BY ${sort.map((s) => `${quoteIdent(s.key)} ${s.dir === 'desc' ? 'DESC' : 'ASC'}`).join(', ')}`
+  let orderSql = sort.length
+    ? `ORDER BY ${sort.map((s) => `${q(s.key)} ${s.dir === 'desc' ? 'DESC' : 'ASC'}`).join(', ')}`
     : '';
 
-  // ---- LIMIT / OFFSET ----
-  const pageSize = Math.min(Math.max(input.pageSize ?? 5000, 1), 20000);
-  const page = Math.max(input.page ?? 1, 1);
+  // ---- paging ----
+  const pageSize = Math.min(Math.max(Math.floor(input.pageSize ?? 5000), 1), 20000);
+  const page = Math.max(Math.floor(input.page ?? 1), 1);
   const offset = (page - 1) * pageSize;
-  const limitSql = `LIMIT ${push(pageSize)} OFFSET ${push(offset)}`;
 
-  const sql = `SELECT ${selectSql} FROM ${quoteIdent(dataset.view)} ${whereSql} ${groupBySql} ${orderSql} ${limitSql}`.replace(
-    /\s+/g,
-    ' '
-  );
+  let limitSql: string;
+  if (mssql) {
+    // SQL Server's OFFSET/FETCH is only legal after an ORDER BY.
+    if (!orderSql) orderSql = 'ORDER BY (SELECT NULL)';
+    limitSql = `OFFSET ${push(offset)} ROWS FETCH NEXT ${push(pageSize)} ROWS ONLY`;
+  } else {
+    limitSql = `LIMIT ${push(pageSize)} OFFSET ${push(offset)}`;
+  }
 
-  const countParams = params.slice(0, params.length - 2); // exclude limit/offset
+  const sql = `SELECT ${selectSql} FROM ${viewSql} ${whereSql} ${groupBySql} ${orderSql} ${limitSql}`
+    .replace(/\s+/g, ' ')
+    .trim();
+
   const countSql = groupBy
-    ? `SELECT COUNT(*) AS count FROM (SELECT ${quoteIdent(groupBy)} FROM ${quoteIdent(
-        dataset.view
-      )} ${whereSql} GROUP BY ${quoteIdent(groupBy)}) sub`
-    : `SELECT COUNT(*) AS count FROM ${quoteIdent(dataset.view)} ${whereSql}`;
+    ? `SELECT COUNT(*) AS total FROM (SELECT ${q(groupBy)} AS g FROM ${viewSql} ${whereSql} GROUP BY ${q(groupBy)}) sub`
+    : `SELECT COUNT(*) AS total FROM ${viewSql} ${whereSql}`;
 
-  return { sql: sql.trim(), countSql: countSql.replace(/\s+/g, ' ').trim(), params };
+  return {
+    sql,
+    countSql: countSql.replace(/\s+/g, ' ').trim(),
+    params,
+    dialect
+  };
 }
 
 export function buildCountParams(built: BuiltQuery): any[] {
+  // The last two params are always the paging values (offset/limit).
   return built.params.slice(0, built.params.length - 2);
 }

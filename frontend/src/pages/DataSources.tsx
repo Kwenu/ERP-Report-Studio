@@ -7,6 +7,7 @@ import {
   RefreshCwIcon,
   SettingsIcon,
   ShieldCheckIcon,
+  Trash2Icon,
   PlugZapIcon,
   ServerIcon } from
 'lucide-react';
@@ -30,12 +31,15 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
   const {
     sources,
     activeSource,
-    setActiveSourceId,
+    makePrimary,
+    removeSource,
     addSource,
     setConnectionStatus,
     schemaStats,
     applySchemaRefresh,
-    totalRecords
+    totalRecords,
+    sourcesLoading,
+    sourcesError
   } = useErpConnection();
   const { currentUser, logAction } = useApp();
   const navigate = useNavigate();
@@ -44,6 +48,9 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
   const [schemaOpen, setSchemaOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DataSourceConnection | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const admin = isAdmin(currentUser.role);
 
   return (
@@ -65,6 +72,17 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
 
       <div className="grid gap-4 px-5 py-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4">
+          {sourcesError &&
+          <div role="alert" className="rounded border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+              <p className="font-semibold">Could not load data sources from the backend.</p>
+              <p>{sourcesError}</p>
+            </div>
+          }
+          {!sourcesError && !sourcesLoading && sources.length === 0 &&
+          <div className="rounded border border-line bg-white px-4 py-6 text-center text-[13px] text-ink-500">
+              No data source is registered yet. Use <span className="font-medium">Add Data Source</span> to connect the ERP database.
+            </div>
+          }
           {sources.map((source) => {
             const isActive = source.id === activeSource.id;
             return (
@@ -109,8 +127,16 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
                     </p>
                   </div>
                   {!isActive &&
-                  <Button size="sm" onClick={() => setActiveSourceId(source.id)}>
-                      Make active
+                  <Button
+                    size="sm"
+                    disabled={!admin}
+                    title="Reports run against the primary data source"
+                    onClick={() => {
+                      makePrimary(source.id).
+                      then(() => toast.success(`${source.name} is now the primary data source`)).
+                      catch((err) => toast.error(err instanceof Error ? err.message : String(err)));
+                    }}>
+                      Make primary
                     </Button>
                   }
                 </header>
@@ -204,6 +230,19 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
                     onClick={() => setSettingsOpen(true)}>
                     
                     Settings
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    icon={<Trash2Icon className="h-3.5 w-3.5" />}
+                    disabled={!admin}
+                    title={admin ? 'Remove this connection' : 'Only Administrators can delete a data source'}
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeleteTarget(source);
+                    }}>
+                    
+                    Delete
                   </Button>
                   <div className="ml-auto flex items-center gap-1.5">
                     <Link to="/tables">
@@ -320,8 +359,7 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
         source={testTarget}
         failAtStep={simulateConnectionFailure ? 'auth' : undefined}
         onResult={(result) => {
-          if (testTarget.id === activeSource.id)
-          setConnectionStatus(result.success ? 'Connected' : 'Error');
+          setConnectionStatus(result.success ? 'Connected' : 'Error', testTarget.id);
           logAction(
             result.success ?
             'Database connection tested — successful' :
@@ -352,13 +390,71 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
       <AddDataSourceDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onSave={(source) => {
-          addSource(source);
-          logAction('Data source created', '—', source.name);
-          toast.success(`${source.name} added — testing connection`);
-          setTestTarget(source);
+        onSave={async (input) => {
+          const saved = await addSource(input);
+          logAction('Data source created', '—', saved.name);
+          toast.success(`${saved.name} saved — testing connection`);
+          setTestTarget(saved);
         }} />
       
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        title="Delete data source?"
+        description={deleteTarget ? `${deleteTarget.name} · ${deleteTarget.server}:${deleteTarget.port} / ${deleteTarget.database}` : ''}
+        footer={
+        <>
+            <Button disabled={deleting} onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+            variant="primary"
+            className="!border-red-700 !bg-red-600 hover:!bg-red-700 disabled:!bg-red-300"
+            disabled={deleting}
+            icon={<Trash2Icon className="h-3.5 w-3.5" />}
+            onClick={async () => {
+              if (!deleteTarget) return;
+              setDeleting(true);
+              setDeleteError(null);
+              try {
+                await removeSource(deleteTarget.id);
+                logAction('Data source deleted', '—', deleteTarget.name);
+                toast.success(`${deleteTarget.name} was deleted`);
+                setDeleteTarget(null);
+              } catch (err) {
+                setDeleteError(err instanceof Error ? err.message : String(err));
+              } finally {
+                setDeleting(false);
+              }
+            }}>
+            
+              {deleting ? 'Deleting…' : 'Delete data source'}
+            </Button>
+          </>
+        }>
+        
+        <div className="space-y-3 text-[13px] leading-relaxed text-ink-700">
+          <p>
+            This removes the connection and its stored (encrypted) password from the Report Studio.
+            <span className="font-medium text-ink-900"> Nothing in your ERP database is changed or deleted.</span>
+          </p>
+          {deleteTarget?.isPrimary &&
+          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              This is the <span className="font-semibold">primary</span> data source, the one reports run against.
+              {sources.length > 1 ?
+            ' Another data source will become primary automatically.' :
+            ' It is the only one, so reports will stop working until you add a new data source.'}
+            </p>
+          }
+          <p className="text-xs text-ink-500">You can add the same database again at any time with Add Data Source.</p>
+          {deleteError &&
+          <p role="alert" className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {deleteError}
+            </p>
+          }
+        </div>
+      </Modal>
 
       <Modal
         open={settingsOpen}

@@ -34,24 +34,33 @@ export function DataRefreshDialog({
   const [updated, setUpdated] = useState<Record<string, number>>({});
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<DataRefreshResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(async () => {
     setStates(Object.fromEntries(tables.map((t) => [t, 'queued' as RowState])));
     setUpdated({});
     setResult(null);
+    setError(null);
     setRunning(true);
-    const outcome = await refreshData(sourceId, tables, mode, (table, status, tableOutcome) => {
-      setStates((prev) => ({
-        ...prev,
-        [table]: status === 'refreshing' ? 'refreshing' : 'done'
-      }));
-      onTableStatus(table, status === 'refreshing' ? 'Refreshing' : 'Current');
-      if (tableOutcome)
-      setUpdated((prev) => ({ ...prev, [table]: tableOutcome.recordsUpdated }));
-    });
-    setRunning(false);
-    setResult(outcome);
-    onComplete(outcome);
+    try {
+      const outcome = await refreshData(sourceId, tables, mode, (table, status, tableOutcome) => {
+        setStates((prev) => ({
+          ...prev,
+          [table]: status === 'refreshing' ? 'refreshing' : 'done'
+        }));
+        onTableStatus(table, status === 'refreshing' ? 'Refreshing' : 'Current');
+        if (tableOutcome)
+        setUpdated((prev) => ({ ...prev, [table]: tableOutcome.recordsUpdated }));
+      });
+      setResult(outcome);
+      onComplete(outcome);
+    } catch (err) {
+      setStates(Object.fromEntries(tables.map((t) => [t, 'queued' as RowState])));
+      tables.forEach((t) => onTableStatus(t, 'Current'));
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRunning(false);
+    }
   }, [sourceId, tables, mode, onTableStatus, onComplete]);
 
   useEffect(() => {
@@ -113,7 +122,7 @@ export function DataRefreshDialog({
         </div>
 
         <ul className="divide-y divide-line rounded border border-line">
-          {tables.map((table) => {
+          {(tables.length > 40 ? tables.slice(0, 40) : tables).map((table) => {
             const state = states[table] ?? 'queued';
             return (
               <li
@@ -146,6 +155,18 @@ export function DataRefreshDialog({
 
           })}
         </ul>
+        {tables.length > 40 &&
+        <p className="text-center text-2xs text-ink-500">
+            …and {(tables.length - 40).toLocaleString()} more tables (progress above counts all {tables.length.toLocaleString()}).
+          </p>
+        }
+
+        {error &&
+        <div className="rounded border border-red-200 bg-red-50 px-3 py-2" role="alert">
+            <p className="text-[13px] font-semibold text-red-800">Data refresh failed.</p>
+            <p className="text-xs text-red-700">{error}</p>
+          </div>
+        }
 
         {result &&
         <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2">

@@ -36,14 +36,20 @@ export function RefreshSchemaDialog({
     setSteps(schemaSteps.map((s) => ({ ...s, status: 'pending', detail: undefined })));
     setResult(null);
     setRunning(true);
-    const outcome = await refreshSchema(
-      sourceId,
-      (stepId: string, status: StepStatus, detail?: string) =>
-      setSteps((prev) => prev.map((s) => s.id === stepId ? { ...s, status, detail } : s))
-    );
-    setRunning(false);
-    setResult(outcome);
-    onComplete(outcome);
+    try {
+      const outcome = await refreshSchema(
+        sourceId,
+        (stepId: string, status: StepStatus, detail?: string) =>
+        setSteps((prev) => prev.map((s) => s.id === stepId ? { ...s, status, detail } : s))
+      );
+      setResult(outcome);
+      onComplete(outcome);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setSteps((prev) => prev.map((s) => s.status === 'passed' ? s : { ...s, status: 'failed', detail: message }));
+    } finally {
+      setRunning(false);
+    }
   }, [sourceId, onComplete]);
 
   useEffect(() => {

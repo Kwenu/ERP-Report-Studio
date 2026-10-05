@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2Icon, ClockIcon, RefreshCwIcon } from 'lucide-react';
+import { CheckCircle2Icon, ClockIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Panel } from '../components/ui/Panel';
 import { Button } from '../components/ui/Button';
@@ -11,9 +11,13 @@ import { useErpConnection } from '../contexts/ErpConnectionContext';
 import { useApp, canDesign } from '../contexts/AppContext';
 import type { RefreshMode, RefreshSchedule, TableRefreshStatus } from '../types/erp';
 import { formatClock, formatDateTime, formatDuration } from '../utils/format';
-import { selectClass, cx } from '../utils/ui';
+import { inputClass, selectClass, cx } from '../utils/ui';
 
-const coreTables = ['Customers', 'Invoices', 'InvoiceLines', 'Payments', 'Items'];
+/* The tables behind the three report views (invoices, customers, items, reps, receipts).
+ * They are pinned to the top and pre-selected; every other table of the ERP is listed below them. */
+const CORE_TABLES = ['fInvhed', 'fInvdet', 'fDebtor', 'fItems', 'fSalRep', 'fDRecHed', 'fdrecdet'];
+const isCore = (name: string) => CORE_TABLES.some((c) => c.toLowerCase() === name.toLowerCase());
+const PAGE = 100;
 
 const statusTone: Record<TableRefreshStatus, 'green' | 'amber' | 'blue' | 'neutral' | 'red'> = {
   Current: 'green',
@@ -31,6 +35,9 @@ export function DataRefresh() {
     applyDataRefresh,
     lastRefreshResult,
     totalRecords,
+    tablesLoading,
+    tablesError,
+    reloadTables,
     schedule,
     setSchedule,
     nextScheduledRefresh
@@ -39,16 +46,34 @@ export function DataRefresh() {
   const canRefresh = canDesign(currentUser.role);
 
   const [mode, setMode] = useState<RefreshMode>('Incremental');
-  const [selected, setSelected] = useState<string[]>(coreTables);
+  const [selected, setSelected] = useState<string[]>([]);
   const [running, setRunning] = useState<string[] | null>(null);
   const [draft, setDraft] = useState<RefreshSchedule>(schedule);
+  const [search, setSearch] = useState('');
+  const [shown, setShown] = useState(PAGE);
 
-  const ordered = [
-  ...coreTables.
-  map((name) => tableStates.find((t) => t.table === name)).
-  filter((t): t is (typeof tableStates)[number] => Boolean(t)),
-  ...tableStates.filter((t) => !coreTables.includes(t.table))];
+  // Core tables first, then every other table alphabetically.
+  const ordered = useMemo(
+    () => [
+    ...tableStates.filter((t) => isCore(t.table)),
+    ...tableStates.filter((t) => !isCore(t.table))],
+    [tableStates]
+  );
 
+  // Pre-select the core tables once the real list has loaded (and again if the data source changes).
+  const preselected = useRef<string>('');
+  useEffect(() => {
+    if (!ordered.length || preselected.current === activeSource.id) return;
+    preselected.current = activeSource.id;
+    setSelected(ordered.filter((t) => isCore(t.table)).map((t) => t.table));
+  }, [ordered, activeSource.id]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? ordered.filter((t) => t.table.toLowerCase().includes(q)) : ordered;
+  }, [ordered, search]);
+  const visible = filtered.slice(0, shown);
+  const allFilteredSelected = filtered.length > 0 && filtered.every((t) => selected.includes(t.table));
 
   const start = (tables: string[]) => {
     if (!tables.length) {
@@ -91,8 +116,8 @@ export function DataRefresh() {
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-3 text-[13px] md:grid-cols-4">
               <div>
                 <dt className="text-2xs uppercase tracking-wide text-ink-500">Status</dt>
-                <dd className="flex items-center gap-1.5 font-medium text-emerald-700">
-                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+                <dd className={cx('flex items-center gap-1.5 font-medium', activeSource.status === 'Connected' ? 'text-emerald-700' : 'text-red-700')}>
+                  <span className={cx('inline-block h-2 w-2 rounded-full', activeSource.status === 'Connected' ? 'bg-emerald-500' : 'bg-red-500')} aria-hidden />
                   {activeSource.status}
                 </dd>
               </div>
@@ -141,12 +166,45 @@ export function DataRefresh() {
                 </label>
               )}
               <span className="ml-auto text-2xs text-ink-500">
-                {selected.length} of {ordered.length} tables selected
+                {selected.length} of {ordered.length.toLocaleString()} tables selected
               </span>
             </fieldset>
           </Panel>
 
-          <Panel title="Tables">
+          <Panel title={`Tables${ordered.length ? ` (${filtered.length.toLocaleString()}${filtered.length !== ordered.length ? ` of ${ordered.length.toLocaleString()}` : ''})` : ''}`}>
+            <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+              <SearchIcon className="h-3.5 w-3.5 text-ink-400" aria-hidden />
+              <input
+                className={cx(inputClass, 'max-w-xs')}
+                placeholder="Search tables…"
+                aria-label="Search tables"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShown(PAGE);
+                }} />
+              
+              <span className="ml-auto text-2xs text-ink-500">
+                Record counts are read from the database catalogue.
+              </span>
+            </div>
+            {tablesLoading && !ordered.length &&
+            <p className="px-4 py-8 text-center text-xs text-ink-500">Loading tables from the ERP database…</p>
+            }
+            {tablesError &&
+            <div role="alert" className="m-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <p className="font-semibold">Could not load the table list.</p>
+                <p>{tablesError}</p>
+                <Button size="sm" className="mt-2" onClick={() => void reloadTables()}>
+                  Try again
+                </Button>
+              </div>
+            }
+            {!tablesLoading && !tablesError && !ordered.length &&
+            <p className="px-4 py-8 text-center text-xs text-ink-500">
+                No tables to show. Add a data source (Data Sources) and make sure it is connected.
+              </p>
+            }
             <table className="w-full">
               <thead>
                 <tr className="border-b border-line bg-surface-muted text-left text-2xs uppercase tracking-wide text-ink-500">
@@ -155,10 +213,15 @@ export function DataRefresh() {
                       type="checkbox"
                       aria-label="Select all tables"
                       className="h-3.5 w-3.5 accent-accent-500"
-                      checked={selected.length === ordered.length}
-                      onChange={(e) =>
-                      setSelected(e.target.checked ? ordered.map((t) => t.table) : [])
-                      } />
+                      checked={allFilteredSelected}
+                      onChange={(e) => {
+                        const names = filtered.map((t) => t.table);
+                        setSelected((prev) =>
+                        e.target.checked ?
+                        [...new Set([...prev, ...names])] :
+                        prev.filter((t) => !names.includes(t))
+                        );
+                      }} />
                     
                   </th>
                   <th scope="col" className="px-3 py-1.5 font-semibold">Table</th>
@@ -171,12 +234,12 @@ export function DataRefresh() {
                 </tr>
               </thead>
               <tbody>
-                {ordered.map((table) =>
+                {visible.map((table) =>
                 <tr
                   key={table.table}
                   className={cx(
                     'border-b border-line/70 text-[13px] transition-colors duration-150 hover:bg-accent-50/40',
-                    coreTables.includes(table.table) && 'font-medium'
+                    isCore(table.table) && 'font-medium'
                   )}>
                   
                     <td className="px-3 py-1.5">
@@ -220,6 +283,22 @@ export function DataRefresh() {
                 )}
               </tbody>
             </table>
+            {filtered.length > visible.length &&
+            <div className="flex items-center justify-center gap-3 border-t border-line bg-surface-muted px-3 py-2 text-xs text-ink-500">
+                <span>
+                  Showing {visible.length.toLocaleString()} of {filtered.length.toLocaleString()} tables
+                </span>
+                <Button size="sm" onClick={() => setShown((n) => n + PAGE)}>
+                  Show {Math.min(PAGE, filtered.length - visible.length)} more
+                </Button>
+                <Button size="sm" onClick={() => setShown(filtered.length)}>
+                  Show all
+                </Button>
+              </div>
+            }
+            {search && filtered.length === 0 &&
+            <p className="px-4 py-6 text-center text-xs text-ink-500">No table matches “{search}”.</p>
+            }
           </Panel>
         </div>
 

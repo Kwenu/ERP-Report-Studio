@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ConnectionStatus,
   DataSourceConnection,
@@ -6,41 +6,34 @@ import type {
   TableRefreshState,
   TableRefreshStatus } from
 '../types/erp';
-import { erpTables, totalFieldCount, totalRelationshipCount, totalTableCount } from '../data/schema';
-import type { DataRefreshResult, SchemaRefreshResult } from '../services/erpApi';
+import {
+  createDataSource,
+  deleteDataSource,
+  listDataSources,
+  listSourceTables,
+  setPrimaryDataSource,
+  type DataRefreshResult,
+  type NewDataSource,
+  type SchemaRefreshResult } from
+'../services/erpApi';
+import { useApp } from './AppContext';
 
-const SEED_SCHEMA_REFRESH = '2026-09-09T05:45:00';
-const SEED_DATA_REFRESH = '2026-09-09T06:15:00';
-
-const primarySource: DataSourceConnection = {
-  id: 'ds-erp-prod',
-  name: 'ERP Production Database',
-  databaseType: 'SQL Server',
-  server: 'ERP-SERVER',
-  port: '1433',
-  database: 'PolydimeERP',
-  authMethod: 'Windows Authentication',
-  username: 'POLYDIME\\svc_reporting',
-  status: 'Connected',
-  lastSchemaRefresh: SEED_SCHEMA_REFRESH,
-  lastDataRefresh: SEED_DATA_REFRESH,
-  isPrimary: true
+/** Shown only while no data source exists (never sent to the backend). */
+const NO_SOURCE_ID = 'none';
+const noSource: DataSourceConnection = {
+  id: NO_SOURCE_ID,
+  name: 'No data source',
+  databaseType: '—',
+  server: '—',
+  port: '',
+  database: '—',
+  authMethod: 'Database Authentication',
+  username: '',
+  status: 'Disconnected',
+  lastSchemaRefresh: '',
+  lastDataRefresh: '',
+  isPrimary: false
 };
-
-const staleTables = ['PurchaseOrders', 'PurchaseOrderLines'];
-
-function seedTableStates(): TableRefreshState[] {
-  return erpTables.map((table) => ({
-    table: table.name,
-    records: table.records,
-    lastRefresh: staleTables.includes(table.name) ?
-    '2026-09-06T11:30:00' :
-    table.name === 'Inventory' ?
-    '2026-09-09T04:00:00' :
-    SEED_DATA_REFRESH,
-    status: staleTables.includes(table.name) ? 'Stale' : 'Current'
-  }));
-}
 
 export interface SchemaStats {
   tables: number;
@@ -54,8 +47,22 @@ interface ErpConnectionState {
   sources: DataSourceConnection[];
   activeSource: DataSourceConnection;
   setActiveSourceId: (id: string) => void;
-  addSource: (source: DataSourceConnection) => void;
-  setConnectionStatus: (status: ConnectionStatus) => void;
+  /** Saves the source in the backend (encrypting the password there) and returns the stored record. */
+  addSource: (input: NewDataSource) => Promise<DataSourceConnection>;
+  /** Deletes the connection in the backend (the ERP database itself is untouched). */
+  removeSource: (id: string) => Promise<void>;
+  /** Makes this source the one reports run against. */
+  makePrimary: (id: string) => Promise<void>;
+  /** Real table list of the active source (loaded from the ERP catalogue). */
+  tablesLoading: boolean;
+  tablesError: string | null;
+  reloadTables: () => Promise<void>;
+  setConnectionStatus: (status: ConnectionStatus, sourceId?: string) => void;
+  /** True while the list is being loaded from the backend. */
+  sourcesLoading: boolean;
+  /** Set when the list could not be loaded (backend down / not signed in). */
+  sourcesError: string | null;
+  reloadSources: () => Promise<void>;
   schemaStats: SchemaStats;
   applySchemaRefresh: (result: SchemaRefreshResult) => void;
   tableStates: TableRefreshState[];
@@ -90,19 +97,22 @@ function computeNextRun(schedule: RefreshSchedule): string {
 }
 
 export function ErpConnectionProvider({ children }: {children: React.ReactNode;}) {
-  const [sources, setSources] = useState<DataSourceConnection[]>([primarySource]);
-  const [activeSourceId, setActiveSourceId] = useState(primarySource.id);
-  const [tableStates, setTableStates] = useState<TableRefreshState[]>(seedTableStates);
+  const { authenticated } = useApp();
+  // The bundled sample record is only a placeholder until the real list arrives from the backend.
+  const [sources, setSources] = useState<DataSourceConnection[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(false);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [activeSourceId, setActiveSourceId] = useState(NO_SOURCE_ID);
+  const [tableStates, setTableStates] = useState<TableRefreshState[]>([]);
+  const [tablesLoading, setTablesLoading] = useState(false);
+  const [tablesError, setTablesError] = useState<string | null>(null);
   const [lastRefreshResult, setLastRefreshResult] = useState<DataRefreshResult | null>(null);
   const [schemaStats, setSchemaStats] = useState<SchemaStats>({
-    tables: totalTableCount,
-    fields: totalFieldCount,
-    relationships: totalRelationshipCount,
-    primaryKeys: erpTables.filter((t) => t.fields.some((f) => f.isKey)).length,
-    foreignKeys: erpTables.reduce(
-      (sum, t) => sum + t.fields.filter((f) => f.references).length,
-      0
-    )
+    tables: 0,
+    fields: 0,
+    relationships: 0,
+    primaryKeys: 0,
+    foreignKeys: 0
   });
   const [schedule, setSchedule] = useState<RefreshSchedule>({
     frequency: 'Daily',
@@ -113,7 +123,73 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
   });
 
   const activeSource =
-  sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? primarySource;
+  sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? noSource;
+
+  const reloadSources = useCallback(async () => {
+    setSourcesLoading(true);
+    try {
+      const real = await listDataSources();
+      setSourcesError(null);
+      if (real.length) {
+        setSources(real);
+        setActiveSourceId((current) => real.some((r) => r.id === current) ? current : (real.find((r) => r.isPrimary) ?? real[0]).id);
+      } else {
+        setSources([]);
+        setActiveSourceId(NO_SOURCE_ID);
+      }
+    } catch (err) {
+      setSourcesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSourcesLoading(false);
+    }
+  }, []);
+
+  /* Real tables + row counts of the active source (replaces the old built-in sample list). */
+  const lastDataRefreshRef = useRef('');
+  lastDataRefreshRef.current = activeSource.lastDataRefresh;
+  const loadTables = useCallback(async (sourceId: string, isStale: () => boolean = () => false) => {
+    if (sourceId === NO_SOURCE_ID) {
+      setTableStates([]);
+      setTablesError(null);
+      setSchemaStats({ tables: 0, fields: 0, relationships: 0, primaryKeys: 0, foreignKeys: 0 });
+      return;
+    }
+    setTablesLoading(true);
+    try {
+      const result = await listSourceTables(sourceId);
+      if (isStale()) return;
+      setTablesError(null);
+      setSchemaStats(result.stats);
+      setTableStates(
+        result.tables.map((t) => ({
+          table: t.table,
+          records: t.records,
+          lastRefresh: lastDataRefreshRef.current,
+          status: 'Current' as const
+        }))
+      );
+    } catch (err) {
+      if (isStale()) return;
+      setTableStates([]);
+      setTablesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (!isStale()) setTablesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    let stale = false;
+    void loadTables(activeSourceId, () => stale);
+    return () => {
+      stale = true;
+    };
+  }, [authenticated, activeSourceId, loadTables]);
+
+  // Load the real data sources once the person is signed in (and a token exists).
+  useEffect(() => {
+    if (authenticated) void reloadSources();
+  }, [authenticated, reloadSources]);
 
   const patchActive = useCallback(
     (patch: Partial<DataSourceConnection>) =>
@@ -133,8 +209,9 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
         foreignKeys: result.foreignKeys
       });
       patchActive({ lastSchemaRefresh: result.completedAt });
+      void loadTables(activeSourceId);
     },
-    [patchActive]
+    [patchActive, loadTables, activeSourceId]
   );
 
   const setTableStatus = useCallback((table: string, status: TableRefreshStatus) => {
@@ -169,8 +246,29 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
       sources,
       activeSource,
       setActiveSourceId,
-      addSource: (source) => setSources((prev) => [...prev, source]),
-      setConnectionStatus: (status) => patchActive({ status }),
+      addSource: async (input) => {
+        const saved = await createDataSource(input);
+        await reloadSources(); // picks up the real primary flags
+        if (saved.isPrimary) setActiveSourceId(saved.id);
+        return saved;
+      },
+      removeSource: async (id) => {
+        await deleteDataSource(id);
+        await reloadSources();
+      },
+      makePrimary: async (id) => {
+        await setPrimaryDataSource(id);
+        await reloadSources();
+        setActiveSourceId(id);
+      },
+      tablesLoading,
+      tablesError,
+      reloadTables: () => loadTables(activeSourceId),
+      setConnectionStatus: (status, sourceId) =>
+      setSources((prev) => prev.map((s) => s.id === (sourceId ?? activeSourceId) ? { ...s, status } : s)),
+      sourcesLoading,
+      sourcesError,
+      reloadSources,
       schemaStats,
       applySchemaRefresh,
       tableStates,
@@ -192,7 +290,14 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
     applyDataRefresh,
     lastRefreshResult,
     schedule,
-    patchActive]
+    patchActive,
+    activeSourceId,
+    sourcesLoading,
+    sourcesError,
+    reloadSources,
+    tablesLoading,
+    tablesError,
+    loadTables]
 
   );
 

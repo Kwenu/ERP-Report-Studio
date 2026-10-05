@@ -50,22 +50,97 @@ export async function testConnection(
 ): Promise<TestConnectionResult> {
   if (!source.id) throw new Error('Save the data source before testing the connection.');
 
-  // Show each step as "running" briefly before the real result lands, so the
-  // UI's step-by-step animation still feels alive even though the backend
-  // resolves everything in one round trip.
   for (const step of connectionSteps) onStep(step.id, 'running');
+  const started = performance.now();
 
-  const result = await http<{ success: boolean; message: string; latencyMs: number; steps: Array<{ id: string; status: StepStatus; detail: string }> }>(
-    `/datasources/${source.id}/test`,
-    { method: 'POST' }
-  );
+  let result: { success: boolean; message: string; latencyMs: number; steps: Array<{ id: string; status: StepStatus; detail: string }> };
+  try {
+    // The backend itself gives up after ~25 s; allow a little longer so its real error reaches the screen.
+    result = await http(`/datasources/${source.id}/test`, { method: 'POST', timeoutMs: 45_000 });
+  } catch (err) {
+    // Never leave the spinners running: the request itself failed (backend down, 401, CORS, timeout...).
+    const message = err instanceof Error ? err.message : String(err);
+    onStep('server', 'failed', message);
+    for (const id of ['auth', 'database', 'schema']) onStep(id, 'skipped', 'Not tested');
+    return { success: false, message, latencyMs: Math.round(performance.now() - started) };
+  }
 
+  const reported = new Set(result.steps.map((s) => s.id));
   for (const step of result.steps) {
     onStep(step.id, step.status, step.detail);
     await wait(120);
   }
+  // Steps the backend never reached (because an earlier one failed) are shown as skipped, not spinning.
+  for (const step of connectionSteps) if (!reported.has(step.id)) onStep(step.id, 'skipped', 'Not tested');
 
   return { success: result.success, message: result.message, latencyMs: result.latencyMs };
+}
+
+/* ---------------- Data source registry (stored by the backend) ---------------- */
+
+/** GET /datasources — the real list, with real UUIDs. */
+export async function listDataSources(): Promise<DataSourceConnection[]> {
+  const { dataSources } = await http<{ dataSources: Array<Record<string, any>> }>('/datasources');
+  return dataSources.map(fromApi);
+}
+
+export interface NewDataSource {
+  name: string;
+  databaseType: string;
+  server: string;
+  port: string;
+  database: string;
+  authMethod: DataSourceConnection['authMethod'];
+  username?: string;
+  password?: string;
+}
+
+/** POST /datasources — the password goes to the backend vault once and is never returned. */
+export async function createDataSource(input: NewDataSource): Promise<DataSourceConnection> {
+  return fromApi(await http<Record<string, any>>('/datasources', { method: 'POST', body: JSON.stringify(input) }));
+}
+
+/** DELETE /datasources/:id — removes the connection and its stored password. The ERP database itself is untouched. */
+export async function deleteDataSource(id: string): Promise<void> {
+  await http<void>(`/datasources/${id}`, { method: 'DELETE' });
+}
+
+/** PUT /datasources/:id { isPrimary: true } — reports are always run against the primary source. */
+export async function setPrimaryDataSource(id: string): Promise<void> {
+  await http(`/datasources/${id}`, { method: 'PUT', body: JSON.stringify({ isPrimary: true }) });
+}
+
+export interface SourceTable {
+  table: string;
+  columns: number;
+  records: number;
+}
+
+export interface SourceTablesResult {
+  stats: { tables: number; fields: number; relationships: number; primaryKeys: number; foreignKeys: number };
+  tables: SourceTable[];
+}
+
+/** GET /datasources/:id/tables — every real table in the ERP database with its row count. */
+export async function listSourceTables(id: string): Promise<SourceTablesResult> {
+  return http<SourceTablesResult>(`/datasources/${id}/tables`, { timeoutMs: 120_000 });
+}
+
+function fromApi(row: Record<string, any>): DataSourceConnection {
+  return {
+    id: row.id,
+    name: row.name,
+    databaseType: row.databaseType,
+    server: row.server,
+    port: String(row.port),
+    database: row.database,
+    authMethod: row.authMethod,
+    username: row.username ?? '',
+    status: row.status,
+    lastSchemaRefresh: row.lastSchemaRefresh ?? '',
+    lastDataRefresh: row.lastDataRefresh ?? '',
+    isPrimary: Boolean(row.isPrimary)
+  };
 }
 
 export interface SchemaRefreshResult {
@@ -93,7 +168,8 @@ export async function refreshSchema(
   for (const step of schemaSteps) onStep(step.id, 'running');
 
   const result = await http<Omit<SchemaRefreshResult, 'durationMs'>>(`/datasources/${dataSourceId}/schema/refresh`, {
-    method: 'POST'
+    method: 'POST',
+    timeoutMs: 120_000
   });
 
   onStep('tables', 'passed', `${result.tables} tables found`);
@@ -129,7 +205,7 @@ export async function refreshData(
 
   const result = await http<{ completedAt: string; tables: Array<{ table: string; records: number }> }>(
     `/datasources/${dataSourceId}/data/refresh`,
-    { method: 'POST', body: JSON.stringify({ tables, mode }) }
+    { method: 'POST', body: JSON.stringify({ tables, mode }), timeoutMs: 300_000 }
   );
 
   const outcomes: TableRefreshOutcome[] = result.tables.map((t) => ({
@@ -180,4 +256,28 @@ export async function runQuery(definition: ReportDefinition, signal?: { cancelle
   const result = await http<QueryResponse>('/reports/query', { method: 'POST', body: JSON.stringify(payload) });
   if (signal?.cancelled) throw new Error('cancelled');
   return result;
+}
+
+
+/**
+ * Loads the raw dataset rows for a report from the real database (via the backend).
+ * Only the date range is applied server-side; filters, grouping, sorting and totals are
+ * then computed in the browser by the existing report engine, exactly as before.
+ */
+export async function fetchDatasetRows(
+  definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo'>
+): Promise<QueryResponse & { truncated: boolean }> {
+  const result = await http<QueryResponse>('/reports/query', {
+    method: 'POST',
+    body: JSON.stringify({
+      dataset: definition.dataset,
+      columns: [], // empty = every column of the dataset
+      filters: [],
+      sort: [],
+      dateFrom: definition.dateFrom || undefined,
+      dateTo: definition.dateTo || undefined,
+      pageSize: 20000
+    })
+  });
+  return { ...result, truncated: result.records > result.rows.length };
 }

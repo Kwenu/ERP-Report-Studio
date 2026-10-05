@@ -67,7 +67,7 @@ export function Login() {
             setLoading(true);
             try {
               const user = await login(email, password);
-              signIn(user.role);
+              signIn(user.role, { name: user.name, email: user.email });
             } catch (err) {
               setError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
             } finally {

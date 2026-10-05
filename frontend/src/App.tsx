@@ -28,8 +28,9 @@ function StudioRoutes({
 
 
 }: {simulateConnectionFailure: boolean;}) {
-  const { authenticated } = useApp();
+  const { authenticated, restoringSession } = useApp();
 
+  if (restoringSession) return <div className="flex h-full items-center justify-center text-sm text-ink-500">Restoring your session…</div>;
   if (!authenticated) return <Login />;
 
   return (
@@ -76,7 +77,7 @@ interface AppProps {
 }
 
 export function App({
-  startSignedIn = true,
+  startSignedIn = false,
   simulateConnectionFailure = false
 }: AppProps) {
   return (

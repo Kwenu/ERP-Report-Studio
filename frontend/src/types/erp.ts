@@ -211,6 +211,10 @@ export interface QueryResultMeta {
   executionMs: number;
   completedAt: string;
   dataSource: string;
+  /** Server error message when state === 'error' */
+  error?: string;
+  /** True when the dataset has more rows than the 20,000 the UI loads at once */
+  truncated?: boolean;
 }
 
 export interface ScheduledReport {

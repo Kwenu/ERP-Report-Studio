@@ -12,11 +12,18 @@ async function main() {
     process.exit(1);
   }
 
-  app.listen(env.port, () => {
+  const server = app.listen(env.port, () => {
     console.log(`✅ ERP Report Studio backend listening on http://localhost:${env.port}`);
     console.log(`   API base: http://localhost:${env.port}/api/v1`);
   });
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    console.error(err.code === 'EADDRINUSE' ? `❌ Port ${env.port} is already in use (another backend still running?).` : err);
+    process.exit(1);
+  });
 }
+
+// A failed ERP connection must never take the API down.
+process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:', reason));
 
 main();
 
