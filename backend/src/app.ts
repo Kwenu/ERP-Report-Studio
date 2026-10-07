@@ -15,8 +15,7 @@ import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 export const app = express();
 
 app.use(helmet());
-// In development Vite silently moves to 5174, 5175 ... when 5173 is busy, or is opened via 127.0.0.1 / a LAN IP.
-// A strict single-origin CORS rule then makes the browser block every API call ("Failed to fetch").
+
 const DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/;
 app.use(
   cors({

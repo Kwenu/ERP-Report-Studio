@@ -1,13 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SearchIcon } from 'lucide-react';
-import { allFields, erpTables } from '../../data/schema';
 import { fixedTemplates } from '../../data/templates';
 import { customers, openInvoices } from '../../data/mockErpData';
 import { useApp } from '../../contexts/AppContext';
 
 interface Hit {
-  group: 'Reports' | 'Tables' | 'Fields' | 'Customers' | 'Invoices';
+  group: 'Reports' | 'Customers' | 'Invoices';
   label: string;
   detail: string;
   to: string;
@@ -41,24 +40,6 @@ export function GlobalSearch() {
         label: r.name,
         detail: `${r.category} · ${r.owner}`,
         to: `/reports/view/${r.id}`
-      });
-    });
-    erpTables.forEach((t) => {
-      if (t.name.toLowerCase().includes(q))
-      results.push({
-        group: 'Tables',
-        label: t.name,
-        detail: `${t.fields.length} fields · ${t.records.toLocaleString()} records`,
-        to: `/tables?table=${t.name}`
-      });
-    });
-    allFields.forEach((f) => {
-      if (f.id.toLowerCase().includes(q) || f.displayName.toLowerCase().includes(q))
-      results.push({
-        group: 'Fields',
-        label: f.id,
-        detail: `${f.displayName} · ${f.dataType}`,
-        to: `/tables?table=${f.table}&field=${f.name}`
       });
     });
     customers.forEach((c) => {

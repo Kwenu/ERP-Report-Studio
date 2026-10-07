@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  BarChart3Icon,
   ChevronDownIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
@@ -12,7 +11,6 @@ import {
   RefreshCwIcon,
   ShieldIcon,
   StarIcon,
-  TableIcon,
   WrenchIcon } from
 'lucide-react';
 import { cx } from '../../utils/ui';
@@ -41,8 +39,6 @@ const navItems: NavItem[] = [
 { label: 'Report Builder', to: '/builder', icon: <WrenchIcon className={iconClass} /> },
 { label: 'Data Sources', to: '/data-sources', icon: <DatabaseIcon className={iconClass} /> },
 { label: 'Data Refresh', to: '/data-refresh', icon: <RefreshCwIcon className={iconClass} /> },
-{ label: 'Tables & Fields', to: '/tables', icon: <TableIcon className={iconClass} /> },
-{ label: 'Data Model', to: '/data-model', icon: <BarChart3Icon className={iconClass} /> },
 { label: 'Favorites', to: '/favorites', icon: <StarIcon className={iconClass} /> },
 { label: 'Scheduled Reports', to: '/scheduled', icon: <ClockIcon className={iconClass} /> },
 {

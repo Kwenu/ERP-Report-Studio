@@ -1,21 +1,9 @@
--- =====================================================================
--- ERP Report Studio — report views for the POLYDIME_ERP database
--- Run in SSMS on database POLYDIME_ERP (needs permission to CREATE VIEW).
---
--- Source tables (from your catalogue):
---   fInvhed / fInvdet   sales invoices (header / lines). Cancelled invoices are
---                       moved to lInvdet, so everything in fInvhed is live.
---   fDebtor             customers        fSalRep   sales reps       fItems  items
---   fDRecHed / fdrecdet customer receipts (header / lines); fdrecdet.RefNo1 = the
---                       invoice number the receipt line settles
---
--- NOTE: fInvhed.TotBal / TotAllo are NOT maintained in your system (balance = full
--- amount on every invoice), so "paid" and "open balance" are calculated from the
--- receipt lines instead. Amounts use the base-currency columns (BAmt, BSellPrice,
--- BTotalAmt?) — see the checks at the bottom of this file.
--- =====================================================================
+USE [POLYDIME_ERP];
+GO
 
-CREATE OR ALTER VIEW dbo.v_sales_lines AS
+IF OBJECT_ID('dbo.v_sales_lines', 'V') IS NOT NULL DROP VIEW dbo.v_sales_lines;
+GO
+CREATE VIEW dbo.v_sales_lines AS
 SELECT
   d.RecordId                                   AS lineId,
   h.RecordId                                   AS invoiceId,
@@ -45,7 +33,7 @@ SELECT
   h.Remarks                                    AS memo,
   CAST(NULL AS nvarchar(100))                  AS other1,
   h.ManuRef                                    AS other2,
-  LTRIM(RTRIM(CONCAT(deb.DebAdd1, ' ', deb.DebAdd2))) AS address,
+  LTRIM(RTRIM(ISNULL(deb.DebAdd1, '') + ' ' + ISNULL(deb.DebAdd2, ''))) AS address,
   deb.DebTele                                  AS phone,
   deb.AreaCode                                 AS territory
 FROM dbo.fInvdet d
@@ -57,7 +45,9 @@ LEFT JOIN (SELECT RefNo1, SUM(Amt) AS received FROM dbo.fdrecdet GROUP BY RefNo1
                                ON rc.RefNo1 = h.RefNo;
 GO
 
-CREATE OR ALTER VIEW dbo.v_payment_txns AS
+IF OBJECT_ID('dbo.v_payment_txns', 'V') IS NOT NULL DROP VIEW dbo.v_payment_txns;
+GO
+CREATE VIEW dbo.v_payment_txns AS
 SELECT
   r.RecordId                                   AS paymentId,
   h.RecordId                                   AS invoiceId,
@@ -85,7 +75,9 @@ LEFT JOIN (SELECT RefNo1, SUM(Amt) AS received FROM dbo.fdrecdet GROUP BY RefNo1
                                ON rc.RefNo1 = h.RefNo;
 GO
 
-CREATE OR ALTER VIEW dbo.v_open_invoices AS
+IF OBJECT_ID('dbo.v_open_invoices', 'V') IS NOT NULL DROP VIEW dbo.v_open_invoices;
+GO
+CREATE VIEW dbo.v_open_invoices AS
 SELECT
   'Invoice'                                    AS [type],
   CAST(h.TxnDate AS date)                      AS [date],
@@ -113,29 +105,4 @@ LEFT JOIN (SELECT RefNo1, SUM(Amt) AS received FROM dbo.fdrecdet GROUP BY RefNo1
 WHERE h.TotalAmt - ISNULL(rc.received, 0) > 0.005;
 GO
 
--- ---------------------------------------------------------------------
--- Read-only access for the backend (do NOT run the backend as "sa").
--- ---------------------------------------------------------------------
--- CREATE LOGIN svc_reporting WITH PASSWORD = 'ChangeThisStrongPassword!1';
--- CREATE USER  svc_reporting FOR LOGIN svc_reporting;
--- GRANT SELECT ON dbo.v_sales_lines   TO svc_reporting;
--- GRANT SELECT ON dbo.v_payment_txns  TO svc_reporting;
--- GRANT SELECT ON dbo.v_open_invoices TO svc_reporting;
--- ALTER ROLE db_datareader ADD MEMBER svc_reporting;
-
--- ---------------------------------------------------------------------
--- CHECKS — run these after creating the views and send me the results
--- ---------------------------------------------------------------------
--- 1) Line amounts add up to invoice totals? (diff should be ~0 for most rows)
--- SELECT TOP 10 h.RefNo, h.TotalAmt, h.BTotalAmt, SUM(d.Amt) AS lines_amt, SUM(d.BAmt) AS lines_bamt, h.CurCode
--- FROM fInvhed h JOIN fInvdet d ON d.RefNo = h.RefNo GROUP BY h.RefNo, h.TotalAmt, h.BTotalAmt, h.CurCode;
---
--- 2) Do receipt lines really match invoices?
--- SELECT COUNT(*) AS receipt_lines,
---        SUM(CASE WHEN EXISTS (SELECT 1 FROM fInvhed h WHERE h.RefNo = r.RefNo1) THEN 1 ELSE 0 END) AS matching_invoices
--- FROM fdrecdet r;
---
--- 3) Row counts per view
--- SELECT (SELECT COUNT(*) FROM v_sales_lines) AS sales_lines,
---        (SELECT COUNT(*) FROM v_payment_txns) AS payments,
---        (SELECT COUNT(*) FROM v_open_invoices) AS open_invoices;
+SELECT name FROM sys.views WHERE name IN ('v_sales_lines', 'v_payment_txns', 'v_open_invoices');

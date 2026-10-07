@@ -2,7 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type {
   ConnectionStatus,
   DataSourceConnection,
+  ErpField,
+  ErpTable,
   RefreshSchedule,
+  Relationship,
   TableRefreshState,
   TableRefreshStatus } from
 '../types/erp';
@@ -10,6 +13,7 @@ import {
   createDataSource,
   deleteDataSource,
   listDataSources,
+  getSourceSchema,
   listSourceTables,
   setPrimaryDataSource,
   type DataRefreshResult,
@@ -57,6 +61,15 @@ interface ErpConnectionState {
   tablesLoading: boolean;
   tablesError: string | null;
   reloadTables: () => Promise<void>;
+  /** Live schema (every table + column + relationship) of the active source. */
+  schemaTables: ErpTable[];
+  schemaFields: ErpField[];
+  schemaRelationships: Relationship[];
+  schemaLoading: boolean;
+  schemaError: string | null;
+  /** Re-reads the schema from the backend; force = re-introspect the ERP instead of the server cache. */
+  reloadSchema: (force?: boolean) => Promise<void>;
+  findSchemaField: (id: string) => ErpField | undefined;
   setConnectionStatus: (status: ConnectionStatus, sourceId?: string) => void;
   /** True while the list is being loaded from the backend. */
   sourcesLoading: boolean;
@@ -106,6 +119,10 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
   const [tableStates, setTableStates] = useState<TableRefreshState[]>([]);
   const [tablesLoading, setTablesLoading] = useState(false);
   const [tablesError, setTablesError] = useState<string | null>(null);
+  const [liveTables, setLiveTables] = useState<ErpTable[]>([]);
+  const [schemaRelationships, setSchemaRelationships] = useState<Relationship[]>([]);
+  const [schemaLoading, setSchemaLoading] = useState(false);
+  const [schemaError, setSchemaError] = useState<string | null>(null);
   const [lastRefreshResult, setLastRefreshResult] = useState<DataRefreshResult | null>(null);
   const [schemaStats, setSchemaStats] = useState<SchemaStats>({
     tables: 0,
@@ -191,6 +208,48 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
     if (authenticated) void reloadSources();
   }, [authenticated, reloadSources]);
 
+  /* Full live schema (all tables + all fields + relationships) of the active source. */
+  const schemaRequest = useRef(0);
+  const loadSchema = useCallback(async (sourceId: string, force = false) => {
+    const ticket = ++schemaRequest.current;
+    if (sourceId === NO_SOURCE_ID) {
+      setLiveTables([]);
+      setSchemaRelationships([]);
+      setSchemaError(null);
+      setSchemaLoading(false);
+      return;
+    }
+    setSchemaLoading(true);
+    try {
+      const result = await getSourceSchema(sourceId, force);
+      if (ticket !== schemaRequest.current) return; // a newer request superseded this one
+      setSchemaError(null);
+      setLiveTables(result.tables);
+      setSchemaRelationships(result.relationships);
+      setSchemaStats(result.stats);
+    } catch (err) {
+      if (ticket !== schemaRequest.current) return;
+      setSchemaError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (ticket === schemaRequest.current) setSchemaLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    void loadSchema(activeSourceId);
+  }, [authenticated, activeSourceId, loadSchema]);
+
+  // Row counts shown with each table follow the data-refresh results.
+  const schemaTables = useMemo(() => {
+    if (!tableStates.length) return liveTables;
+    const records = new Map(tableStates.map((t) => [t.table, t.records]));
+    return liveTables.map((t) => records.has(t.name) ? { ...t, records: records.get(t.name)! } : t);
+  }, [liveTables, tableStates]);
+  const schemaFields = useMemo(() => schemaTables.flatMap((t) => t.fields), [schemaTables]);
+  const fieldIndex = useMemo(() => new Map(schemaFields.map((f) => [f.id, f])), [schemaFields]);
+  const findSchemaField = useCallback((id: string) => fieldIndex.get(id), [fieldIndex]);
+
   const patchActive = useCallback(
     (patch: Partial<DataSourceConnection>) =>
     setSources((prev) =>
@@ -210,8 +269,9 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
       });
       patchActive({ lastSchemaRefresh: result.completedAt });
       void loadTables(activeSourceId);
+      void loadSchema(activeSourceId);
     },
-    [patchActive, loadTables, activeSourceId]
+    [patchActive, loadTables, loadSchema, activeSourceId]
   );
 
   const setTableStatus = useCallback((table: string, status: TableRefreshStatus) => {
@@ -264,6 +324,13 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
       tablesLoading,
       tablesError,
       reloadTables: () => loadTables(activeSourceId),
+      schemaTables,
+      schemaFields,
+      schemaRelationships,
+      schemaLoading,
+      schemaError,
+      reloadSchema: (force = false) => loadSchema(activeSourceId, force),
+      findSchemaField,
       setConnectionStatus: (status, sourceId) =>
       setSources((prev) => prev.map((s) => s.id === (sourceId ?? activeSourceId) ? { ...s, status } : s)),
       sourcesLoading,
@@ -297,7 +364,14 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
     reloadSources,
     tablesLoading,
     tablesError,
-    loadTables]
+    loadTables,
+    schemaTables,
+    schemaFields,
+    schemaRelationships,
+    schemaLoading,
+    schemaError,
+    loadSchema,
+    findSchemaField]
 
   );
 

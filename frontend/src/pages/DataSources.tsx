@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   DatabaseIcon,
@@ -244,14 +244,6 @@ export function DataSources({ simulateConnectionFailure = false }: {simulateConn
                     
                     Delete
                   </Button>
-                  <div className="ml-auto flex items-center gap-1.5">
-                    <Link to="/tables">
-                      <Button size="sm">View Tables</Button>
-                    </Link>
-                    <Link to="/data-model">
-                      <Button size="sm">Data Model</Button>
-                    </Link>
-                  </div>
                 </div>
               </section>);
 

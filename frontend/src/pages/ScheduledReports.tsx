@@ -23,9 +23,9 @@ export function ScheduledReports() {
         title="Scheduled Reports"
         subtitle="Automated delivery of saved reports to mailboxes, with the filters and formatting preserved."
         actions={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
             <select
-            className={`${selectClass} w-[260px]`}
+            className={`${selectClass} h-9 w-[260px] px-3`}
             value={reportName}
             onChange={(e) => setReportName(e.target.value)}
             aria-label="Report to schedule">
@@ -36,6 +36,7 @@ export function ScheduledReports() {
             </select>
             <Button
             variant="primary"
+            size="lg"
             icon={<PlusIcon className="h-3.5 w-3.5" />}
             onClick={() => setOpen(true)}>
             
@@ -64,7 +65,7 @@ export function ScheduledReports() {
               {schedules.map((schedule) =>
               <tr
                 key={schedule.id}
-                className="border-b border-line/70 text-[13px] hover:bg-accent-50/40">
+                className="border-b border-line/70 text-[13px] hover:bg-accent-50/40 [&>td]:py-2.5">
                 
                   <td className="px-3 py-1.5 font-medium text-ink-900">
                     {schedule.reportName}
@@ -81,9 +82,10 @@ export function ScheduledReports() {
                       {schedule.status}
                     </Badge>
                   </td>
-                  <td className="px-3 py-1.5 text-right">
+                  <td className="px-3 py-2.5 text-right">
                     <Button
-                    size="sm"
+                    size="action"
+                    className="min-w-[84px]"
                     onClick={() => {
                       toggleSchedule(schedule.id);
                       toast.success(

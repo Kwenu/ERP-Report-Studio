@@ -1,6 +1,6 @@
 
 type Variant = 'primary' | 'default' | 'ghost' | 'danger';
-type Size = 'sm' | 'md';
+type Size = 'xs' | 'icon' | 'sm' | 'md' | 'action' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -20,8 +20,16 @@ const variants: Record<Variant, string> = {
 };
 
 const sizes: Record<Size, string> = {
+  /** Slim toolbar button. */
+  xs: 'h-6 px-2 text-[11px] gap-1 whitespace-nowrap',
+  /** Square icon-only toolbar button (give it a title / aria-label). */
+  icon: 'h-6 w-6 p-0',
   sm: 'h-7 px-2 text-xs gap-1.5',
-  md: 'h-8 px-3 text-[13px] gap-2'
+  md: 'h-8 px-3 text-[13px] gap-2',
+  /** Compact but comfortable — for row actions inside tables. */
+  action: 'h-8 px-3.5 text-xs gap-1.5 whitespace-nowrap',
+  /** Page-level actions in headers. */
+  lg: 'h-9 px-4 text-[13px] gap-2 whitespace-nowrap'
 };
 
 export function Button({

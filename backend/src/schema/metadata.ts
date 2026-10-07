@@ -1,17 +1,4 @@
 import 'dotenv/config';
-/* ------------------------------------------------------------------ *
- * Canonical ERP schema + dataset metadata.
- *
- * Two jobs:
- *   1. Answers GET /api/v1/schema/* so the frontend's Data Model /
- *      Tables & Fields pages have something real to show.
- *   2. Acts as an allow-list for the query engine: a report's `dataset`
- *      must be one of DATASETS below, and every column/filter/sort/
- *      group-by key it references must be one of that dataset's
- *      `columns`. Nothing outside this list is ever interpolated into
- *      SQL, so a report definition can never reach an arbitrary table
- *      or column.
- * ------------------------------------------------------------------ */
 
 export type DataType = 'text' | 'integer' | 'decimal' | 'currency' | 'date' | 'datetime' | 'boolean';
 export type UserRole = 'Administrator' | 'Report Designer' | 'Report Viewer';
@@ -182,13 +169,6 @@ export const relationships: Relationship[] = [
 
 export const allFields: ErpField[] = erpTables.flatMap((t) => t.fields);
 
-/* ------------------------------------------------------------------ *
- * Dataset whitelist — what the report query engine is allowed to run.
- * Each dataset maps 1:1 to a SQL VIEW created in db/schema.sql. Every
- * key here is a column alias exposed by that view; the query builder
- * refuses to reference any column not listed.
- * ------------------------------------------------------------------ */
-
 export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices';
 
 export interface DatasetColumn {
@@ -287,8 +267,6 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
   }
 };
 
-// Let each deployment point a dataset at its own view without editing code:
-//   DATASET_VIEW_SALESLINES=dbo.v_sales_lines  DATASET_VIEW_PAYMENTTXNS=...  DATASET_VIEW_OPENINVOICES=...
 for (const d of Object.values(DATASETS)) {
   const override = process.env[`DATASET_VIEW_${d.id.toUpperCase()}`];
   if (override) d.view = override;

@@ -123,7 +123,8 @@ export function buildReportQuery(input: ReportQueryInput): BuiltQuery {
   if (input.dateFrom || input.dateTo) assertColumn(input.dataset, dateKey);
 
   const q = (name: string) => quoteIdent(name, dialect);
-  const viewSql = quoteObjectName(dataset.view, dialect);
+  // On SQL Server always use an explicit schema, so the view is found no matter which default schema the login has.
+  const viewSql = quoteObjectName(mssql && !dataset.view.includes('.') ? `dbo.${dataset.view}` : dataset.view, dialect);
   const asText = (col: string) => (mssql ? `CAST(${col} AS NVARCHAR(4000))` : `${col}::text`);
 
   const params: any[] = [];

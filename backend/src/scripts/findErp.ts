@@ -1,7 +1,3 @@
-/* Searches the ERP catalogue by keyword (table or column names). Reads no data rows.
- *   npm run erp:find -- invoice customer
- * Prints every table whose name or columns match, with row counts.
- */
 import { pool } from '../db/pool';
 import { findDataSource, getConnector } from '../db/erpConnector';
 import { introspectSchema } from '../services/introspect';

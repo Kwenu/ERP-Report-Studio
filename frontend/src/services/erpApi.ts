@@ -4,7 +4,8 @@
  * without changes. The only real difference: these now call the live
  * backend instead of setTimeout()s over in-memory mock data.
  */
-import type { DataSourceConnection, RefreshMode, ReportDefinition, Row } from '../types/erp';
+import type { DataSourceConnection, ErpField, ErpTable, RefreshMode, Relationship, ReportDefinition, Row } from '../types/erp';
+import { allFields as sampleFields, erpTables as sampleTables } from '../data/schema';
 import { http } from './http';
 
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api/v1') as string;
@@ -124,6 +125,57 @@ export interface SourceTablesResult {
 /** GET /datasources/:id/tables — every real table in the ERP database with its row count. */
 export async function listSourceTables(id: string): Promise<SourceTablesResult> {
   return http<SourceTablesResult>(`/datasources/${id}/tables`, { timeoutMs: 120_000 });
+}
+
+export interface SourceSchema {
+  stats: SourceTablesResult['stats'];
+  tables: ErpTable[];
+  relationships: Relationship[];
+  loadedAt: string;
+}
+
+const sampleById = new Map<string, ErpField>(sampleFields.map((f) => [f.id.toLowerCase(), f]));
+const sampleTableByName = new Map<string, ErpTable>(sampleTables.map((t) => [t.name.toLowerCase(), t]));
+
+/**
+ * GET /datasources/:id/schema — every table and column discovered in the ERP database.
+ * Fields that also exist in the built-in report datasets keep their friendly name / dataset key,
+ * so existing reports and the builder keep working; everything else is shown exactly as discovered.
+ */
+export async function getSourceSchema(id: string, refresh = false): Promise<SourceSchema> {
+  const raw = await http<{
+    stats: SourceTablesResult['stats'];
+    tables: Array<{ name: string; description?: string; records?: number; fields: Array<Record<string, any>> }>;
+    relationships: Relationship[];
+    loadedAt: string;
+  }>(`/datasources/${id}/schema${refresh ? '?refresh=true' : ''}`, { timeoutMs: 120_000 });
+
+  const tables: ErpTable[] = raw.tables.map((t) => ({
+    name: t.name,
+    description: t.description || sampleTableByName.get(t.name.toLowerCase())?.description || '',
+    records: t.records ?? 0,
+    lastUpdated: raw.loadedAt,
+    status: 'Active' as const,
+    fields: t.fields.map((f) => {
+      const known = sampleById.get(String(f.id).toLowerCase());
+      return {
+        id: f.id,
+        table: t.name,
+        name: f.name,
+        displayName: known?.displayName ?? f.displayName ?? f.name,
+        dataType: f.dataType,
+        description: known?.description || f.description || '',
+        example: known?.example ?? '',
+        nullable: Boolean(f.nullable),
+        reportable: f.reportable !== false,
+        key: known?.key,
+        isKey: Boolean(f.isKey),
+        references: f.references ?? undefined
+      } as ErpField;
+    })
+  }));
+
+  return { stats: raw.stats, tables, relationships: raw.relationships ?? [], loadedAt: raw.loadedAt };
 }
 
 function fromApi(row: Record<string, any>): DataSourceConnection {

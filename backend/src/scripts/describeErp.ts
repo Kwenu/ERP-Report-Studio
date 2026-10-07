@@ -1,8 +1,3 @@
-/* Prints every column (name, type, keys) of the tables you name.
- *   npm run erp:describe -- fDispHed fDispDet Customer ffitems
- * Add --sample to also print the first 3 rows of each table (skip it if the data is sensitive).
- * Output is also saved to erp-describe.txt
- */
 import fs from 'fs';
 import { pool } from '../db/pool';
 import { findDataSource, getConnector } from '../db/erpConnector';

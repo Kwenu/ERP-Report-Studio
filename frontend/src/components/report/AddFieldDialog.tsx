@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, LinkIcon, SearchIcon } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { erpTables, relationshipsFor } from '../../data/schema';
+import { useErpConnection } from '../../contexts/ErpConnectionContext';
 import type { ErpField } from '../../types/erp';
 import { inputClass, cx } from '../../utils/ui';
 
@@ -14,14 +14,15 @@ interface AddFieldDialogProps {
 }
 
 export function AddFieldDialog({ open, onClose, onAdd, existingIds }: AddFieldDialogProps) {
+  const { schemaTables, schemaRelationships } = useErpConnection();
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<string[]>(['Invoices']);
   const [selected, setSelected] = useState<ErpField | null>(null);
 
   const visibleTables = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return erpTables;
-    return erpTables.
+    if (!q) return schemaTables;
+    return schemaTables.
     map((t) => ({
       ...t,
       fields: t.fields.filter(
@@ -31,10 +32,13 @@ export function AddFieldDialog({ open, onClose, onAdd, existingIds }: AddFieldDi
         t.name.toLowerCase().includes(q)
       )
     })).
-    filter((t) => t.fields.length > 0);
-  }, [query]);
+    filter((t) => t.fields.length > 0).
+    slice(0, 200);
+  }, [query, schemaTables]);
 
-  const related = selected ? relationshipsFor(selected.table) : [];
+  const related = selected ?
+  schemaRelationships.filter((r) => r.fromTable === selected.table || r.toTable === selected.table) :
+  [];
 
   return (
     <Modal

@@ -1,7 +1,3 @@
-/* Dumps the REAL tables / columns / keys of the primary ERP database to ./erp-schema.txt
- * so you can map the three report views (db/erp_views.mssql.sql) to the actual table names.
- * Run with:  npm run erp:inspect      (no data rows are read, only the catalogue)
- */
 import fs from 'fs';
 import { pool } from '../db/pool';
 import { findDataSource, getConnector } from '../db/erpConnector';

@@ -7,7 +7,6 @@ import {
   FileTextIcon,
   LayersIcon,
   StarIcon,
-  TableIcon,
   WrenchIcon } from
 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -56,12 +55,6 @@ export function Dashboard() {
     description: 'Drag ERP fields straight onto an empty report.',
     icon: <FilePlus2Icon className="h-4 w-4" />,
     to: '/builder/new'
-  },
-  {
-    label: 'Browse ERP Tables',
-    description: '17 tables and 96 reportable fields catalogued.',
-    icon: <TableIcon className="h-4 w-4" />,
-    to: '/tables'
   },
   {
     label: 'View Fixed Reports',

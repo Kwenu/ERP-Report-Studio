@@ -11,8 +11,6 @@ import { ReportBuilder } from './pages/ReportBuilder';
 import { BuilderCanvas } from './pages/BuilderCanvas';
 import { DataSources } from './pages/DataSources';
 import { DataRefresh } from './pages/DataRefresh';
-import { TablesFields } from './pages/TablesFields';
-import { DataModel } from './pages/DataModel';
 import { MyReports } from './pages/MyReports';
 import { SharedReports } from './pages/SharedReports';
 import { Favorites } from './pages/Favorites';
@@ -53,8 +51,6 @@ function StudioRoutes({
           element={<DataSources simulateConnectionFailure={simulateConnectionFailure} />} />
         
         <Route path="/data-refresh" element={<DataRefresh />} />
-        <Route path="/tables" element={<TablesFields />} />
-        <Route path="/data-model" element={<DataModel />} />
         <Route path="/favorites" element={<Favorites />} />
         <Route path="/scheduled" element={<ScheduledReports />} />
         <Route path="/settings" element={<ReportSettings />} />

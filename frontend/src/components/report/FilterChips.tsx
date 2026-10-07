@@ -23,7 +23,7 @@ export function FilterChips({
 }: {filters: FilterRule[];onRemove: (id: string) => void;onClear: () => void;}) {
   if (!filters.length) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-line bg-accent-50/60 px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-1.5 border-b border-line bg-accent-50/60 px-3 py-1">
       <FilterIcon className="h-3.5 w-3.5 text-accent-600" />
       <span className="mr-1 text-2xs font-semibold uppercase tracking-wide text-accent-700">
         Active filters

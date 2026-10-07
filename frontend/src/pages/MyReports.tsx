@@ -21,6 +21,7 @@ export function MyReports() {
         actions={
         <Button
           variant="primary"
+          size="lg"
           icon={<PlusIcon className="h-3.5 w-3.5" />}
           onClick={() => navigate('/builder/new')}>
           

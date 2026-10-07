@@ -42,6 +42,7 @@ export async function http<T>(path: string, options: HttpOptions = {}): Promise<
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
+      cache: 'no-store',
       ...init,
       signal: controller.signal,
       headers: {

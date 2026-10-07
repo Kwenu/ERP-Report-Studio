@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { XIcon, SigmaIcon, LayoutListIcon, ColumnsIcon, FilterIcon, GroupIcon, ArrowUpDownIcon } from 'lucide-react';
 import type { ReportColumn, ReportDefinition } from '../../types/erp';
 import { findField } from '../../data/schema';
+import { useErpConnection } from '../../contexts/ErpConnectionContext';
 import { cx } from '../../utils/ui';
 
 export type ZoneId = 'rows' | 'columns' | 'values' | 'filters' | 'groupBy' | 'sortBy';
@@ -34,6 +35,7 @@ export function BuilderZones({
   onClearGroup,
   onRemoveSort
 }: BuilderZonesProps) {
+  const { findSchemaField } = useErpConnection();
   const [activeZone, setActiveZone] = useState<ZoneId | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -91,7 +93,7 @@ export function BuilderZones({
   };
 
   return (
-    <div className="grid grid-cols-3 gap-2 border-b border-line bg-surface-muted p-2 xl:grid-cols-6">
+    <div className="grid grid-cols-3 gap-1.5 border-b border-line bg-surface-muted px-2 py-1.5 xl:grid-cols-6">
       {zoneMeta.map((zone) => {
         const chips = chipsFor(zone.id);
         const isActive = activeZone === zone.id;
@@ -107,12 +109,12 @@ export function BuilderZones({
             onDrop={(e) => {
               e.preventDefault();
               const fieldId = e.dataTransfer.getData('text/plain');
-              if (fieldId && findField(fieldId)) onDropField(fieldId, zone.id);
+              if (fieldId && (findSchemaField(fieldId) ?? findField(fieldId))) onDropField(fieldId, zone.id);
               setActiveZone(null);
               setDragging(false);
             }}
             className={cx(
-              'flex min-h-[86px] flex-col rounded border bg-white p-1.5 transition-colors duration-150',
+              'flex h-[88px] flex-col rounded border bg-white p-1 transition-colors duration-150',
               isActive ?
               'border-accent-500 bg-accent-50 ring-1 ring-accent-300' :
               dragging ?
@@ -120,7 +122,7 @@ export function BuilderZones({
               'border-line'
             )}>
             
-            <p className="mb-1 flex items-center gap-1 text-2xs font-semibold uppercase tracking-wide text-ink-500">
+            <p className="mb-0.5 flex shrink-0 items-center gap-1 text-2xs font-semibold uppercase tracking-wide text-ink-500">
               <span className="text-accent-600">{zone.icon}</span>
               {zone.label}
               {chips.length > 0 &&
@@ -134,7 +136,7 @@ export function BuilderZones({
                 {dragging ? 'Drop here' : zone.hint}
               </p> :
 
-            <ul className="flex flex-1 flex-col gap-1 overflow-y-auto erp-scroll">
+            <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto erp-scroll">
                 {chips.map((chip) =>
               <li
                 key={chip.id}

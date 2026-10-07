@@ -1,7 +1,3 @@
-/* Registers (or updates) the company ERP database as the PRIMARY data source, using ERP_DB_* from .env,
- * then runs a real connection test.   Run with:  npm run erp:connect
- * The password is encrypted (AES-256-GCM) before it is stored; it is never printed.
- */
 import { query, pool } from '../db/pool';
 import { env } from '../config/env';
 import { encryptSecret } from '../utils/crypto';

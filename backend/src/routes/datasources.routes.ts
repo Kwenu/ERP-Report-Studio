@@ -236,6 +236,52 @@ datasourcesRouter.post(
   })
 );
 
+/**
+ * GET /api/v1/datasources/:id/schema — the FULL live schema of the ERP database: every table with
+ * every column, plus relationships and row counts. Pass ?refresh=true to re-read it from the ERP
+ * instead of using the cached copy.
+ */
+datasourcesRouter.get(
+  '/:id/schema',
+  asyncHandler(async (req, res) => {
+    const row = await findDataSource(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Data source not found.' });
+    try {
+      let schema;
+      if (String(req.query.refresh) === 'true') {
+        schema = await introspectSchema(getConnector(row));
+        setCachedSchema(row.id, schema);
+      } else {
+        schema = await getSchemaFor(row);
+      }
+      let counts: Record<string, number> = {};
+      try {
+        counts = await tableRowCounts(getConnector(row));
+      } catch {
+        /* row counts are a nicety; never block the schema on them */
+      }
+      res.set('Cache-Control', 'no-store');
+      res.json({
+        stats: {
+          tables: schema.tables.length,
+          fields: schema.fieldCount,
+          relationships: schema.relationships.length,
+          primaryKeys: schema.primaryKeys,
+          foreignKeys: schema.foreignKeys
+        },
+        tables: [...schema.tables]
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+          .map((t) => ({ ...t, records: counts[t.name] ?? 0 })),
+        relationships: schema.relationships,
+        loadedAt: new Date().toISOString()
+      });
+    } catch (err: any) {
+      await invalidateConnector(row.id);
+      res.status(502).json({ error: `Could not read the schema from the ERP: ${err.message}` });
+    }
+  })
+);
+
 /** POST /api/v1/datasources/:id/schema/refresh — reads the live tables / columns / keys from the ERP database. */
 datasourcesRouter.post(
   '/:id/schema/refresh',

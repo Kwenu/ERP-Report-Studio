@@ -260,8 +260,32 @@ reportsRouter.post(
         conn.query(built.countSql, buildCountParams(built))
       ]);
     } catch (err: any) {
-      // Typically: a view/column in db/erp_views.mssql.sql doesn't exist yet or the login lacks SELECT.
+      // Typically: a view/column in db/erp_views.*.sql doesn't exist yet or the login lacks SELECT.
       console.error('Report query failed:', err.message, '\nSQL:', built.sql);
+
+      // "Invalid object name 'v_…'" = the report views were never created in this ERP database.
+      // Say exactly which ones are missing and what to run, instead of a raw SQL Server message.
+      if (conn.dialect === 'mssql' && /invalid object name/i.test(String(err.message))) {
+        const wanted = Object.values(DATASETS).map((d) => d.view.replace(/^dbo\./i, ''));
+        let missing = wanted;
+        try {
+          const found = await conn.query(
+            `SELECT name FROM sys.views WHERE name IN (${wanted.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')})`
+          );
+          const have = new Set(found.rows.map((r: any) => String(r.name).toLowerCase()));
+          missing = wanted.filter((v) => !have.has(v.toLowerCase()));
+        } catch {
+          /* keep the full list */
+        }
+        if (missing.length) {
+          return res.status(502).json({
+            error:
+              `The report views are not installed in ${conn.label}: ${missing.join(', ')}. ` +
+              `Run backend/db/erp_views.polydime.sql in SSMS on that database, then press Refresh.`,
+            missingViews: missing
+          });
+        }
+      }
       return res.status(502).json({ error: `The ERP database rejected the query: ${err.message}` });
     }
 

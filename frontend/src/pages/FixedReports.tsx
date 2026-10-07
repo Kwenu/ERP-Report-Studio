@@ -62,6 +62,7 @@ export function FixedReports() {
                 </div>
                 <Button
                   variant="primary"
+                  size="lg"
                   onClick={() => navigate(`/reports/fixed/${template.id}`)}>
                   
                   Open Report
@@ -93,11 +94,11 @@ export function FixedReports() {
                 </div>
               </dl>
 
-              <div className="flex flex-wrap gap-1.5 px-4 py-2.5">
+              <div className="flex flex-wrap gap-2 px-4 py-3">
                 {secondaryActions.map((action) =>
                 <Button
                   key={action.label}
-                  size="sm"
+                  size="action"
                   icon={action.icon}
                   onClick={() => navigate(`/reports/fixed/${template.id}`)}>
                   

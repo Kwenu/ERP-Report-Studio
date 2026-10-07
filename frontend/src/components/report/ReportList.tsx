@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MoreHorizontalIcon, SearchIcon, StarIcon } from 'lucide-react';
 import type { ReportDefinition } from '../../types/erp';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { useApp } from '../../contexts/AppContext';
 import { relativeTime } from '../../utils/format';
@@ -26,6 +27,22 @@ export function ReportList({
   const { favorites, toggleFavorite, duplicateReport, deleteReport, renameReport } = useApp();
   const [query, setQuery] = useState('');
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the actions menu when clicking elsewhere or pressing Escape.
+  useEffect(() => {
+    if (!menuFor) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuFor(null);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuFor]);
 
   const filtered = reports.filter(
     (r) =>
@@ -67,7 +84,7 @@ export function ReportList({
       <table className="w-full">
           <thead>
             <tr className="border-b border-line bg-surface-muted text-left text-2xs uppercase tracking-wide text-ink-500">
-              <th scope="col" className="w-8 px-2 py-1.5" />
+              <th scope="col" className="w-12 px-2 py-1.5" />
               <th scope="col" className="px-3 py-1.5 font-semibold">Report Name</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Type</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Category</th>
@@ -75,21 +92,21 @@ export function ReportList({
               <th scope="col" className="px-3 py-1.5 font-semibold">Visibility</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Last Modified</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Last Run</th>
-              {showActions && <th scope="col" className="w-10 px-2 py-1.5" />}
+              {showActions && <th scope="col" className="w-[150px] px-3 py-1.5 text-right font-semibold">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {filtered.map((report) =>
           <tr
             key={report.id}
-            className="border-b border-line/70 text-[13px] transition-colors duration-150 hover:bg-accent-50/40">
+            className="border-b border-line/70 text-[13px] transition-colors duration-150 hover:bg-accent-50/40 [&>td]:py-2.5">
             
                 <td className="px-2 py-1.5">
                   <button
                 type="button"
                 aria-label={`Toggle favourite for ${report.name}`}
                 onClick={() => toggleFavorite(report.id)}
-                className="rounded p-0.5">
+                className="rounded p-1.5 transition-colors duration-150 hover:bg-surface-sunken">
                 
                     <StarIcon
                   className={cx(
@@ -124,17 +141,24 @@ export function ReportList({
                 </td>
                 <td className="px-3 py-1.5 text-ink-500">{relativeTime(report.lastRun)}</td>
                 {showActions &&
-            <td className="relative px-2 py-1.5">
-                    <button
+            <td className="relative px-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button size="action" onClick={() => openReport(report)}>
+                        Open
+                      </Button>
+                      <button
                 type="button"
-                aria-label={`Actions for ${report.name}`}
+                aria-label={`More actions for ${report.name}`}
+                aria-haspopup="menu"
+                aria-expanded={menuFor === report.id}
                 onClick={() => setMenuFor(menuFor === report.id ? null : report.id)}
-                className="rounded p-1 text-ink-500 transition-colors duration-150 hover:bg-surface-sunken hover:text-ink-900">
+                className="inline-flex h-8 w-8 items-center justify-center rounded border border-line bg-white text-ink-500 transition-colors duration-150 hover:border-line-strong hover:bg-surface-muted hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400">
                 
-                      <MoreHorizontalIcon className="h-4 w-4" />
-                    </button>
+                        <MoreHorizontalIcon className="h-4 w-4" />
+                      </button>
+                    </div>
                     {menuFor === report.id &&
-              <div className="absolute right-2 top-8 z-30 w-40 rounded border border-line bg-white py-1 text-xs shadow-pop">
+              <div ref={menuRef} role="menu" className="absolute right-3 top-11 z-30 w-44 rounded-md border border-line bg-white py-1.5 text-xs shadow-pop">
                         {[
                 { label: 'Open', run: () => openReport(report) },
                 { label: 'Edit', run: () => openReport(report) },
@@ -179,7 +203,7 @@ export function ReportList({
                     setMenuFor(null);
                   }}
                   className={cx(
-                    'block w-full px-3 py-1.5 text-left transition-colors duration-150 hover:bg-surface-muted',
+                    'block w-full px-3.5 py-2 text-left transition-colors duration-150 hover:bg-surface-muted',
                     action.label === 'Delete' ? 'text-red-700' : 'text-ink-700',
                     report.type === 'Fixed Template' &&
                     ['Delete', 'Rename'].includes(action.label) &&

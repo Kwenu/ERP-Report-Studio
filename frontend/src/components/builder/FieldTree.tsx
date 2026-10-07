@@ -9,7 +9,6 @@ import {
   SearchIcon,
   TableIcon } from
 'lucide-react';
-import { erpTables } from '../../data/schema';
 import { useErpConnection } from '../../contexts/ErpConnectionContext';
 import type { ErpField } from '../../types/erp';
 import { inputClass, cx } from '../../utils/ui';
@@ -30,14 +29,15 @@ interface FieldTreeProps {
 }
 
 export function FieldTree({ onFieldActivate, usedFieldIds }: FieldTreeProps) {
-  const { activeSource, schemaStats } = useErpConnection();
+  const { activeSource, schemaStats, schemaTables, schemaLoading, schemaError, reloadSchema } = useErpConnection();
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<string[]>(['Invoices', 'InvoiceLines']);
 
-  const tables = useMemo(() => {
+  const MAX_RESULTS = 60;
+  const allMatches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return erpTables;
-    return erpTables.
+    if (!q) return schemaTables;
+    return schemaTables.
     map((t) => ({
       ...t,
       fields: t.fields.filter(
@@ -46,7 +46,8 @@ export function FieldTree({ onFieldActivate, usedFieldIds }: FieldTreeProps) {
       )
     })).
     filter((t) => t.fields.length > 0 || t.name.toLowerCase().includes(q));
-  }, [query]);
+  }, [query, schemaTables]);
+  const tables = query.trim() ? allMatches.slice(0, MAX_RESULTS) : allMatches;
 
   return (
     <aside className="flex w-[268px] shrink-0 flex-col border-r border-line bg-white">
@@ -59,7 +60,7 @@ export function FieldTree({ onFieldActivate, usedFieldIds }: FieldTreeProps) {
             className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"
             aria-hidden />
           
-          {activeSource.status} · {schemaStats.tables} tables · {schemaStats.fields} fields
+          {activeSource.status} · {schemaStats.tables} tables · {schemaStats.fields} fields{schemaLoading ? ' · updating…' : ''}
         </p>
       </header>
 
@@ -77,6 +78,20 @@ export function FieldTree({ onFieldActivate, usedFieldIds }: FieldTreeProps) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto erp-scroll">
+        {schemaError &&
+        <div className="space-y-2 p-3 text-xs text-red-700">
+            <p>{schemaError}</p>
+            <button type="button" onClick={() => void reloadSchema(true)} className="rounded border border-line bg-white px-3 py-1 text-ink-700 hover:bg-surface-muted">
+              Try again
+            </button>
+          </div>
+        }
+        {!schemaError && schemaLoading && schemaTables.length === 0 &&
+        <p className="p-3 text-center text-xs text-ink-500">Reading tables from the ERP…</p>
+        }
+        {!schemaError && !schemaLoading && schemaTables.length === 0 &&
+        <p className="p-3 text-center text-xs text-ink-500">No tables found. Connect a data source first.</p>
+        }
         {tables.map((table) => {
           const isOpen = expanded.includes(table.name) || query.trim().length > 0;
           return (
@@ -117,7 +132,7 @@ export function FieldTree({ onFieldActivate, usedFieldIds }: FieldTreeProps) {
                           e.dataTransfer.effectAllowed = 'copy';
                         }}
                         onDoubleClick={() => onFieldActivate(field)}
-                        title={`${field.description} · e.g. ${field.example}`}
+                        title={[field.description, field.example && `e.g. ${field.example}`].filter(Boolean).join(' · ') || field.id}
                         className={cx(
                           'group flex cursor-grab items-center gap-1.5 py-[3px] pl-7 pr-2 text-xs transition-colors duration-150 active:cursor-grabbing',
                           used ? 'text-accent-700' : 'text-ink-700',
@@ -154,6 +169,11 @@ export function FieldTree({ onFieldActivate, usedFieldIds }: FieldTreeProps) {
             </div>);
 
         })}
+        {query.trim() && allMatches.length > MAX_RESULTS &&
+        <p className="px-3 py-2 text-2xs text-ink-500">
+            Showing the first {MAX_RESULTS} of {allMatches.length} matching tables — type more to narrow down.
+          </p>
+        }
       </div>
 
       <footer className="border-t border-line bg-surface-muted px-3 py-2 text-2xs leading-relaxed text-ink-500">

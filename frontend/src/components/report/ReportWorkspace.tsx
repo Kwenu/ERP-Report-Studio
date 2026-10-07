@@ -1,14 +1,6 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsDownUpIcon,
-  ChevronsUpDownIcon,
-  Loader2Icon,
-  SearchIcon,
-  SlidersHorizontalIcon } from
-'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
 import type { ErpField, ReportColumn, ReportDefinition } from '../../types/erp';
 import { columnFromField, getTemplate, cloneDefinition } from '../../data/templates';
 import {
@@ -27,13 +19,13 @@ import { AddFieldDialog } from './AddFieldDialog';
 import { SaveAsDialog } from './SaveAsDialog';
 import { ScheduleDialog } from './ScheduleDialog';
 import { ColumnManagerDialog } from './ColumnManagerDialog';
-import { QueryStatusBar } from './QueryStatusBar';
+import { ReportControlsBar } from './ReportControlsBar';
 import { Button } from '../ui/Button';
 import { useApp, canDesign } from '../../contexts/AppContext';
 import { useErpConnection } from '../../contexts/ErpConnectionContext';
 import { useErpQuery } from '../../hooks/useErpQuery';
 import { exportCsv, exportExcel, exportPdf } from '../../utils/exporter';
-import { inputClass, selectClass } from '../../utils/ui';
+import { compactSelectClass } from '../../utils/ui';
 
 const pageSizes = [25, 50, 100, 250, 500];
 
@@ -267,6 +259,7 @@ export function ReportWorkspace({
           editing={panelOpen}
           onToggleEdit={() => setPanelOpen((o) => !o)}
           canEdit={editable}
+          refreshing={queryMeta.state === 'running'}
           isTemplate={isTemplate || Boolean(definition.templateId)}
           isFavorite={favorites.includes(definition.id)}
           onRefresh={() => {
@@ -293,65 +286,29 @@ export function ReportWorkspace({
           filterCount={definition.filters.length} />
         
 
-        <QueryStatusBar meta={queryMeta} onRefresh={requestRefresh} />
+        <ReportControlsBar
+          definition={definition}
+          onChange={patch}
+          meta={queryMeta}
+          search={search}
+          onSearch={(value) => {
+            setSearch(value);
+            setPage(0);
+          }}
+          hasGroups={Boolean(allGroups)}
+          allCollapsed={allCollapsed}
+          onToggleCollapseAll={() => setCollapsedGroups(allCollapsed ? [] : allGroupKeys)}
+          selectedCount={selectedRows.length}
+          requestedAt={refreshedAt}
+          panelOpen={panelOpen}
+          onOpenPanel={() => setPanelOpen(true)} />
+        
 
         <FilterChips
           filters={definition.filters}
           onRemove={(id) => patch({ filters: definition.filters.filter((f) => f.id !== id) })}
           onClear={() => patch({ filters: [] })} />
         
-
-        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-white px-3 py-1.5">
-          <div className="relative w-64">
-            <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
-            <input
-              className={`${inputClass} h-7 pl-7 text-xs`}
-              placeholder="Search within report…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(0);
-              }}
-              aria-label="Search within report" />
-            
-          </div>
-          {allGroups &&
-          <Button
-            size="sm"
-            icon={
-            allCollapsed ?
-            <ChevronsUpDownIcon className="h-3.5 w-3.5" /> :
-
-            <ChevronsDownUpIcon className="h-3.5 w-3.5" />
-
-            }
-            onClick={() => setCollapsedGroups(allCollapsed ? [] : allGroupKeys)}>
-            
-              {allCollapsed ? 'Expand all' : 'Collapse all'}
-            </Button>
-          }
-          {selectedRows.length > 0 &&
-          <span className="text-2xs text-accent-700">
-              {selectedRows.length} row{selectedRows.length === 1 ? '' : 's'} selected
-            </span>
-          }
-          <span className="ml-auto text-2xs text-ink-500">
-            Requested{' '}
-            {refreshedAt.toLocaleTimeString('en-GB', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </span>
-          {!panelOpen &&
-          <Button
-            size="sm"
-            icon={<SlidersHorizontalIcon className="h-3.5 w-3.5" />}
-            onClick={() => setPanelOpen(true)}>
-            
-              Configure
-            </Button>
-          }
-        </div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden bg-surface-muted">
           {queryMeta.state === 'running' &&
@@ -396,7 +353,7 @@ export function ReportWorkspace({
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center gap-3 border-t border-line bg-white px-3 py-1.5">
+        <footer className="flex flex-wrap items-center gap-3 border-t border-line bg-white px-3 py-1">
           <p className="text-xs text-ink-700">
             Showing{' '}
             <span className="tabular font-medium">
@@ -412,7 +369,7 @@ export function ReportWorkspace({
             </label>
             <select
               id="page-size"
-              className={`${selectClass} h-7 w-[76px] text-xs`}
+              className={`${compactSelectClass} w-[64px]`}
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));
@@ -428,8 +385,8 @@ export function ReportWorkspace({
           </div>
           <div className="ml-auto flex items-center gap-1">
             <Button
-              size="sm"
-              icon={<ChevronLeftIcon className="h-3.5 w-3.5" />}
+              size="xs"
+              icon={<ChevronLeftIcon className="h-3 w-3" />}
               disabled={safePage === 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}>
               
@@ -439,12 +396,12 @@ export function ReportWorkspace({
               Page {safePage + 1} of {pageCount}
             </span>
             <Button
-              size="sm"
+              size="xs"
               disabled={safePage >= pageCount - 1}
               onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>
               
               Next
-              <ChevronRightIcon className="h-3.5 w-3.5" />
+              <ChevronRightIcon className="h-3 w-3" />
             </Button>
           </div>
         </footer>

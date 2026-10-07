@@ -87,6 +87,7 @@ export function ReportView({ mode }: {mode: 'template' | 'saved';}) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
+        compact
         title={definition.name}
         breadcrumb={['Reports', isTemplate ? 'Fixed Reports' : 'My Reports']}
         subtitle={definition.description}

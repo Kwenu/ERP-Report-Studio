@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { MousePointerClickIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronUpIcon, MousePointerClickIcon } from 'lucide-react';
 import { FieldTree } from '../components/builder/FieldTree';
 import { BuilderZones, type ZoneId } from '../components/builder/BuilderZones';
 import { ReportWorkspace } from '../components/report/ReportWorkspace';
@@ -9,6 +9,7 @@ import { CalculatedFieldDialog } from '../components/builder/CalculatedFieldDial
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { findField } from '../data/schema';
+import { useErpConnection } from '../contexts/ErpConnectionContext';
 import {
   blankReport,
   cloneDefinition,
@@ -16,7 +17,7 @@ import {
   getTemplate } from
 '../data/templates';
 import type { DatasetId, ErpField, ReportDefinition } from '../types/erp';
-import { inputClass, selectClass } from '../utils/ui';
+import { compactInputClass, compactSelectClass } from '../utils/ui';
 import { useApp } from '../contexts/AppContext';
 
 const zoneOrder: ZoneId[] = ['rows', 'columns', 'values'];
@@ -53,10 +54,12 @@ function initialDefinition(templateId: string | null): {
 export function BuilderCanvas() {
   const [searchParams] = useSearchParams();
   const { currentUser, logAction } = useApp();
+  const { findSchemaField } = useErpConnection();
   const [state, setState] = useState(() =>
   initialDefinition(searchParams.get('template'))
   );
   const [calcOpen, setCalcOpen] = useState(false);
+  const [zonesOpen, setZonesOpen] = useState(true);
 
   const { definition, zoneOf } = state;
 
@@ -136,7 +139,7 @@ export function BuilderCanvas() {
   }, []);
 
   const handleDropField = (fieldId: string, zone: ZoneId) => {
-    const field = findField(fieldId);
+    const field = findSchemaField(fieldId) ?? findField(fieldId);
     if (!field) return;
     addFieldToZone(field, zone);
     toast.success(`${field.displayName} added to ${zone === 'groupBy' ? 'Group By' : zone}`);
@@ -161,16 +164,16 @@ export function BuilderCanvas() {
       
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-white px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-white px-3 py-1">
           <input
             aria-label="Report name"
-            className={`${inputClass} h-8 w-64 font-medium`}
+            className={`${compactInputClass} h-7 w-60 text-xs font-medium`}
             value={definition.name}
             onChange={(e) => setDefinition({ ...definition, name: e.target.value })} />
           
           <select
             aria-label="Report data source"
-            className={`${selectClass} w-[330px]`}
+            className={`${compactSelectClass} h-7 w-[300px] text-xs`}
             value={definition.dataset}
             onChange={(e) =>
             setDefinition({ ...definition, dataset: e.target.value as DatasetId })
@@ -182,12 +185,21 @@ export function BuilderCanvas() {
               </option>
             )}
           </select>
-          <Button onClick={() => setCalcOpen(true)}>Calculated field</Button>
+          <Button size="xs" onClick={() => setCalcOpen(true)}>Calculated field</Button>
+          <Button
+            size="xs"
+            aria-expanded={zonesOpen}
+            icon={zonesOpen ? <ChevronUpIcon className="h-3 w-3" /> : <ChevronDownIcon className="h-3 w-3" />}
+            onClick={() => setZonesOpen((o) => !o)}>
+            
+            {zonesOpen ? 'Hide design area' : 'Show design area'}
+          </Button>
           <span className="ml-auto text-2xs text-ink-500">
-            Designing as {currentUser.name} · {currentUser.role}
+            {currentUser.name} · {currentUser.role}
           </span>
         </div>
 
+        {zonesOpen &&
         <BuilderZones
           definition={definition}
           zoneOf={zoneOf}
@@ -206,6 +218,7 @@ export function BuilderCanvas() {
             sort: definition.sort.filter((s) => s.key !== key)
           })
           } />
+        }
         
 
         <div className="min-h-0 flex-1">
