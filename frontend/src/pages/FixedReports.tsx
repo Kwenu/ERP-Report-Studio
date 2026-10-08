@@ -33,7 +33,7 @@ export function FixedReports() {
   return (
     <div className="pb-8">
       <PageHeader
-        title="Fixed Reports"
+        title="Sales Report - Mr. Johann"
         breadcrumb={['Reports']}
         subtitle="Protected ERP templates. The default structure is preserved — your changes are always saved as a separate version." />
       

@@ -1,8 +1,8 @@
 import type { ReportDefinition } from '../../types/erp';
-import { formatDate, monthLabel, todayIso } from '../../utils/format';
+import { formatDate, monthLabel } from '../../utils/format';
 
 function periodLabel(def: ReportDefinition): string {
-  if (!def.dateFrom || !def.dateTo) return `As of ${formatDate(todayIso())}`;
+  if (!def.dateFrom || !def.dateTo) return 'All dates';
   if (def.dateFrom === def.dateTo) return formatDate(def.dateFrom);
   const sameMonth = def.dateFrom.slice(0, 7) === def.dateTo.slice(0, 7);
   const startsFirst = def.dateFrom.endsWith('-01');

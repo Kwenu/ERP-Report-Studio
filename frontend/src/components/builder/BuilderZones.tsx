@@ -8,8 +8,8 @@ import { cx } from '../../utils/ui';
 export type ZoneId = 'rows' | 'columns' | 'values' | 'filters' | 'groupBy' | 'sortBy';
 
 const zoneMeta: {id: ZoneId;label: string;hint: string;icon: ReactNode;}[] = [
-{ id: 'rows', label: 'Rows', hint: 'Leading detail fields', icon: <LayoutListIcon className="h-3.5 w-3.5" /> },
-{ id: 'columns', label: 'Columns', hint: 'Additional detail fields', icon: <ColumnsIcon className="h-3.5 w-3.5" /> },
+{ id: 'rows', label: 'Rows', hint: 'Row labels down the side', icon: <LayoutListIcon className="h-3.5 w-3.5" /> },
+{ id: 'columns', label: 'Columns', hint: 'Spread across the top', icon: <ColumnsIcon className="h-3.5 w-3.5" /> },
 { id: 'values', label: 'Values', hint: 'Numeric measures', icon: <SigmaIcon className="h-3.5 w-3.5" /> },
 { id: 'filters', label: 'Filters', hint: 'Restrict the records', icon: <FilterIcon className="h-3.5 w-3.5" /> },
 { id: 'groupBy', label: 'Group By', hint: 'One grouping level', icon: <GroupIcon className="h-3.5 w-3.5" /> },
@@ -83,7 +83,7 @@ export function BuilderZones({
       onRemove: () => onRemoveSort(s.key)
     }));
     return definition.columns.
-    filter((c) => (zoneOf[c.id] ?? 'columns') === zone).
+    filter((c) => (zoneOf[c.id] ?? c.zone ?? 'rows') === zone).
     map((c: ReportColumn) => ({
       id: c.id,
       label: c.label,

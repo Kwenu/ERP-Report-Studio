@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ChevronDownIcon, ChevronUpIcon, MousePointerClickIcon } from 'lucide-react';
@@ -16,7 +16,7 @@ import {
   columnFromField,
   getTemplate } from
 '../data/templates';
-import type { DatasetId, ErpField, ReportDefinition } from '../types/erp';
+import type { ColumnZone, DatasetId, ErpField, ReportDefinition } from '../types/erp';
 import { compactInputClass, compactSelectClass } from '../utils/ui';
 import { useApp } from '../contexts/AppContext';
 
@@ -27,6 +27,42 @@ const datasetOptions: {id: DatasetId;label: string;}[] = [
 { id: 'paymentTxns', label: 'Payment transactions (Invoices + Payments)' },
 { id: 'openInvoices', label: 'Open invoices as of today' }];
 
+
+type BuilderState = {definition: ReportDefinition;zoneOf: Record<string, ZoneId>;};
+
+const isNumericType = (t: ErpField['dataType']) => t === 'currency' || t === 'decimal' || t === 'integer';
+
+/** Why this field cannot join the report as it stands (a report reads ONE source), or null when it can. */
+function sourceConflict(def: ReportDefinition, field: ErpField, live: boolean): string | null {
+  const inUse = def.columns.length > 0 || def.filters.length > 0 || def.sort.length > 0 || Boolean(def.groupBy);
+  if (!inUse) return null;
+  if (live) {
+    if (def.dataset !== 'erpTable') {
+      return 'This report started from a standard report template. Remove its fields, or start a new report, to build on an ERP table.';
+    }
+    if (def.sourceTable !== field.table) {
+      return `This report reads the ${def.sourceTable} table. A report uses one table at a time — remove its fields or start a new report to use ${field.table}.`;
+    }
+    return null;
+  }
+  if (def.dataset === 'erpTable') {
+    return `This report reads the ${def.sourceTable} table. Remove its fields to switch to the standard report fields.`;
+  }
+  return null;
+}
+
+/** Points the report at the right source for the field being added (a real ERP table, or a standard dataset). */
+function applySourceFor(prev: BuilderState, field: ErpField, live: boolean): BuilderState {
+  const def = prev.definition;
+  if (live) {
+    if (def.dataset === 'erpTable' && def.sourceTable === field.table) return prev;
+    return { ...prev, definition: { ...def, dataset: 'erpTable', sourceTable: field.table } };
+  }
+  if (def.dataset === 'erpTable') {
+    return { ...prev, definition: { ...def, dataset: 'salesLines', sourceTable: undefined } };
+  }
+  return prev;
+}
 
 function initialDefinition(templateId: string | null): {
   definition: ReportDefinition;
@@ -43,7 +79,7 @@ function initialDefinition(templateId: string | null): {
       copy.columns = copy.columns.map((c) => ({ ...c, locked: false }));
       const zoneOf: Record<string, ZoneId> = {};
       copy.columns.forEach((c) => {
-        zoneOf[c.id] = c.aggregation === 'none' ? 'columns' : 'values';
+        zoneOf[c.id] = c.aggregation === 'none' ? 'rows' : 'values';
       });
       return { definition: copy, zoneOf };
     }
@@ -60,6 +96,8 @@ export function BuilderCanvas() {
   );
   const [calcOpen, setCalcOpen] = useState(false);
   const [zonesOpen, setZonesOpen] = useState(true);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const { definition, zoneOf } = state;
 
@@ -79,7 +117,9 @@ export function BuilderCanvas() {
   );
 
   const addFieldToZone = useCallback((field: ErpField, zone: ZoneId) => {
-    setState((prev) => {
+    const live = Boolean(findSchemaField(field.id));
+    setState((prevState) => {
+      const prev = applySourceFor(prevState, field, live);
       const { definition: def, zoneOf: zones } = prev;
       const key = field.key ?? field.name;
 
@@ -126,23 +166,55 @@ export function BuilderCanvas() {
         };
       }
 
-      if (def.columns.some((c) => c.id === field.id)) return prev;
-      const column = columnFromField(field);
-      if (zone === 'values' && column.aggregation === 'none') column.aggregation = 'sum';
-      if (zone !== 'values') column.aggregation = 'none';
+      const columnZone = zone as ColumnZone;
+      const measure = isNumericType(field.dataType) ? 'sum' as const : 'count' as const;
+
+      // Dropping a field that is already in the report moves it to the new zone.
+      const existing = def.columns.find((c) => c.id === field.id);
+      if (existing) {
+        const moved = {
+          ...existing,
+          zone: columnZone,
+          aggregation: zone === 'values' ? existing.aggregation === 'none' ? measure : existing.aggregation : 'none' as const
+        };
+        const zones3 = { ...zones, [field.id]: zone };
+        return {
+          definition: {
+            ...def,
+            columns: orderColumns(def.columns.map((c) => c.id === field.id ? moved : c), zones3)
+          },
+          zoneOf: zones3
+        };
+      }
+
+      const column = { ...columnFromField(field), zone: columnZone };
+      column.aggregation = zone === 'values' ? measure : 'none';
       const zones2 = { ...zones, [field.id]: zone };
       return {
         definition: { ...def, columns: orderColumns([...def.columns, column], zones2) },
         zoneOf: zones2
       };
     });
-  }, []);
+  }, [findSchemaField]);
+
+  /** Adds the field unless it would mix sources; explains why when it cannot. Returns true when added. */
+  const addChecked = (field: ErpField, zone: ZoneId): boolean => {
+    const live = Boolean(findSchemaField(field.id));
+    const conflict = sourceConflict(stateRef.current.definition, field, live);
+    if (conflict) {
+      toast.error(conflict);
+      return false;
+    }
+    addFieldToZone(field, zone);
+    return true;
+  };
 
   const handleDropField = (fieldId: string, zone: ZoneId) => {
     const field = findSchemaField(fieldId) ?? findField(fieldId);
     if (!field) return;
-    addFieldToZone(field, zone);
-    toast.success(`${field.displayName} added to ${zone === 'groupBy' ? 'Group By' : zone}`);
+    if (addChecked(field, zone)) {
+      toast.success(`${field.displayName} added to ${zone === 'groupBy' ? 'Group By' : zone}`);
+    }
   };
 
   const removeColumn = (columnId: string) =>
@@ -159,7 +231,7 @@ export function BuilderCanvas() {
   return (
     <div className="flex h-full min-h-0">
       <FieldTree
-        onFieldActivate={(field) => addFieldToZone(field, 'columns')}
+        onFieldActivate={(field) => addChecked(field, 'rows')}
         usedFieldIds={definition.columns.map((c) => c.id)} />
       
 
@@ -175,15 +247,40 @@ export function BuilderCanvas() {
             aria-label="Report data source"
             className={`${compactSelectClass} h-7 w-[300px] text-xs`}
             value={definition.dataset}
-            onChange={(e) =>
-            setDefinition({ ...definition, dataset: e.target.value as DatasetId })
-            }>
+            onChange={(e) => {
+              const next = e.target.value as DatasetId;
+              if (next === 'erpTable') return;
+              if (definition.dataset === 'erpTable') {
+                // Leaving an ERP table: its fields do not exist in the standard datasets, so start clean.
+                setState({
+                  definition: {
+                    ...definition,
+                    dataset: next,
+                    sourceTable: undefined,
+                    columns: [],
+                    filters: [],
+                    sort: [],
+                    groupBy: null,
+                    calculatedFields: []
+                  },
+                  zoneOf: {}
+                });
+                toast.info('Fields cleared — they belonged to an ERP table.');
+                return;
+              }
+              setDefinition({ ...definition, dataset: next });
+            }}>
             
             {datasetOptions.map((option) =>
             <option key={option.id} value={option.id}>
                 {option.label}
               </option>
             )}
+            <option value="erpTable" disabled={definition.dataset !== 'erpTable'}>
+              {definition.dataset === 'erpTable' ?
+              `ERP table: ${definition.sourceTable}` :
+              'ERP table (drag a field from the left)'}
+            </option>
           </select>
           <Button size="xs" onClick={() => setCalcOpen(true)}>Calculated field</Button>
           <Button
@@ -233,14 +330,14 @@ export function BuilderCanvas() {
               onDrop={(e) => {
                 e.preventDefault();
                 const fieldId = e.dataTransfer.getData('text/plain');
-                if (fieldId) handleDropField(fieldId, 'columns');
+                if (fieldId) handleDropField(fieldId, 'rows');
               }}
               className="flex h-full items-center justify-center border-2 border-dashed border-line bg-surface-muted/50 m-3">
               
                 <EmptyState
                 icon={<MousePointerClickIcon className="h-5 w-5" />}
                 title="Start building your report"
-                description="Drop fields here, or drag them into Rows, Columns and Values above. Expand a table on the left — for example Invoices → InvoiceDate, InvoiceNumber, then InvoiceLines → Quantity and Amount." />
+                description="Drop fields here, or drag them into Rows, Columns and Values above. Expand a table on the left and drag its fields in: Rows become the row labels, Columns are spread across the top, and Values are summed in the cells. A report reads one table at a time." />
               
               </div>
             } />

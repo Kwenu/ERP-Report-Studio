@@ -10,6 +10,7 @@ import { reportsRouter } from './routes/reports.routes';
 import { usersRouter } from './routes/users.routes';
 import { auditRouter } from './routes/audit.routes';
 import { schedulesRouter } from './routes/schedules.routes';
+import { invoicesRouter } from './routes/invoices.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 
 export const app = express();
@@ -41,6 +42,7 @@ app.use(`${API_BASE}/reports`, reportsRouter);
 app.use(`${API_BASE}/users`, usersRouter);
 app.use(`${API_BASE}/audit`, auditRouter);
 app.use(`${API_BASE}/schedules`, schedulesRouter);
+app.use(`${API_BASE}/invoices`, invoicesRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

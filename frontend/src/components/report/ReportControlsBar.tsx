@@ -2,6 +2,7 @@ import { ChevronsDownUpIcon, ChevronsUpDownIcon, DatabaseIcon, Loader2Icon, Sear
 import { Button } from '../ui/Button';
 import type { QueryResultMeta, ReportDefinition } from '../../types/erp';
 import { formatDateTime } from '../../utils/format';
+import { matchPreset, periodPresets, presetRange, type PeriodId } from '../../utils/period';
 import { compactInputClass, compactSelectClass } from '../../utils/ui';
 
 interface ReportControlsBarProps {
@@ -44,9 +45,27 @@ export function ReportControlsBar({
   return (
     <>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-white px-3 py-1">
-        {definition.dateFrom !== undefined &&
+        {(definition.dateFrom !== undefined || definition.dataset !== 'erpTable') &&
         <div className="flex items-center gap-1">
-            <span className={label}>Dates</span>
+            <span className={label}>Period</span>
+            <select
+            aria-label="Period"
+            value={matchPreset(definition.dateFrom ?? '', definition.dateTo ?? '')}
+            onChange={(e) => {
+              const id = e.target.value as PeriodId | 'custom';
+              if (id === 'custom') return; // just edit the dates below
+              const range = presetRange(id);
+              onChange({ dateFrom: range.from, dateTo: range.to });
+            }}
+            className={`${compactSelectClass} w-[158px]`}>
+            
+              <option value="custom">Custom range</option>
+              {periodPresets.map((p) =>
+            <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+            )}
+            </select>
             <input
             type="date"
             aria-label="From date"

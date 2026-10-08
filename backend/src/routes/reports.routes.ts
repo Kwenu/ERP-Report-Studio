@@ -83,7 +83,8 @@ const saveSchema = z.object({
   visibility: z.enum(['Private', 'Shared with Department', 'Shared with Company']).default('Private'),
   type: z.enum(['Fixed Template', 'Custom Report']).default('Custom Report'),
   templateId: z.string().optional(),
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices']),
+  // 'erpTable' = a report built on one real ERP table (its name rides along in the saved definition).
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'erpTable']),
   // Everything else (columns, filters, sort, formatting…) rides along as-is.
   rest: z.record(z.any()).default({})
 });

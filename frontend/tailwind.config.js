@@ -6,22 +6,37 @@ export default {content: [
     extend: {
       colors: {
         navy: {
-          950: '#08182c',
-          900: '#0c2138',
-          800: '#122c47',
-          700: '#183a5c',
-          600: '#1f4a72',
-          500: '#2a5d8a',
+          // Black (navigation bar, top bar, sidebar, login panel)
+          950: '#000000',
+          900: '#0a0a0a',
+          800: '#1a1a1a',
+          700: '#2a2a2a',
+          600: '#3a3a3a',
+          500: '#4a4a4a',
         },
         accent: {
-          50: '#eef4fd',
-          100: '#d8e6fa',
-          200: '#b4cef4',
-          300: '#7fadea',
-          400: '#4a89dd',
-          500: '#1f6bd0',
-          600: '#1657ac',
-          700: '#134788',
+          // Red (buttons, links, highlights, focus rings)
+          50: '#fef2f2',
+          100: '#fee2e2',
+          200: '#fecaca',
+          300: '#fca5a5',
+          400: '#f87171',
+          500: '#dc2626',
+          600: '#b91c1c',
+          700: '#991b1b',
+        },
+        // Neutral greys instead of the default blue-tinted "slate" (text on the black bars)
+        slate: {
+          50: '#fafafa',
+          100: '#f5f5f5',
+          200: '#e5e5e5',
+          300: '#d4d4d4',
+          400: '#a3a3a3',
+          500: '#737373',
+          600: '#525252',
+          700: '#404040',
+          800: '#262626',
+          900: '#171717',
         },
         ink: {
           900: '#111827',

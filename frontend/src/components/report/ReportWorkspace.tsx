@@ -7,7 +7,9 @@ import {
   aggregate,
   applyFilters,
   applySort,
+  buildPivot,
   groupRows,
+  isPivotActive,
   type GroupBlock } from
 '../../utils/reportEngine';
 import { ReportHeading } from './ReportHeading';
@@ -63,7 +65,7 @@ export function ReportWorkspace({
 }: ReportWorkspaceProps) {
   const { currentUser, saveReport, favorites, toggleFavorite, logAction, addSchedule } =
   useApp();
-  const { activeSource } = useErpConnection();
+  const { activeSource, findSchemaField } = useErpConnection();
   const editable = canDesign(currentUser.role);
 
   const [panelOpen, setPanelOpen] = useState(defaultPanelOpen);
@@ -136,16 +138,26 @@ export function ReportWorkspace({
     [rows, definition.columns, definition.weightedAverage]
   );
 
+  /* Report Builder reports with Columns (cross-tab) or Rows + Values (summary) are pivoted. */
+  const pivot = useMemo(
+    () => isPivotActive(definition.columns) ? buildPivot(rows, definition) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, definition.columns, definition.sort]
+  );
+  const viewRows = pivot ? pivot.rows : rows;
+  const viewColumns = pivot ? pivot.columns : visibleColumns;
+  const viewGrandTotals = pivot ? pivot.grandTotals : grandTotals;
+
   const allGroups = useMemo(
     () =>
-    definition.groupBy ?
+    definition.groupBy && !pivot ?
     groupRows(rows, definition.groupBy).map((g) => ({
       ...g,
       totals: aggregate(g.rows, visibleColumns, aggOptions)
     })) :
     null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, definition.groupBy, definition.columns, definition.weightedAverage]
+    [rows, definition.groupBy, definition.columns, definition.weightedAverage, pivot]
   );
 
   const groupPages = useMemo(
@@ -155,10 +167,10 @@ export function ReportWorkspace({
 
   const pageCount = groupPages ?
   groupPages.length :
-  Math.max(1, Math.ceil(rows.length / pageSize));
+  Math.max(1, Math.ceil(viewRows.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const pageGroups = groupPages ? groupPages[safePage] : null;
-  const pageRows = groupPages ? [] : rows.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const pageRows = groupPages ? [] : viewRows.slice(safePage * pageSize, safePage * pageSize + pageSize);
   const shownCount = pageGroups ?
   pageGroups.reduce((sum, g) => sum + g.rows.length, 0) :
   pageRows.length;
@@ -197,6 +209,22 @@ export function ReportWorkspace({
 
   const addField = (field: ErpField) => {
     if (definition.columns.some((c) => c.id === field.id)) return;
+    const live = Boolean(findSchemaField(field.id));
+    if (definition.dataset === 'erpTable' && field.table !== definition.sourceTable) {
+      toast.error(`This report reads the ${definition.sourceTable} table. A report uses one table at a time — start a new report to use ${field.table}.`);
+      return;
+    }
+    if (live && definition.dataset !== 'erpTable' && definition.columns.length > 0) {
+      toast.error('This report uses the standard report fields. Remove them, or start a new report, to build on an ERP table.');
+      return;
+    }
+    if (live && definition.dataset !== 'erpTable') {
+      // First field of a blank report: it now reads that ERP table.
+      patch({ dataset: 'erpTable', sourceTable: field.table, columns: [columnFromField(field)] });
+      logAction(`Added field "${field.displayName}"`, definition.name);
+      toast.success(`${field.displayName} added to the report`);
+      return;
+    }
     patch({ columns: [...definition.columns, columnFromField(field)] });
     logAction(`Added field "${field.displayName}"`, definition.name);
     toast.success(`${field.displayName} added to the report`);
@@ -209,10 +237,10 @@ export function ReportWorkspace({
 
   const exportPayload = {
     definition,
-    columns: visibleColumns,
+    columns: viewColumns,
     groups: allGroups,
-    rows,
-    grandTotals
+    rows: viewRows,
+    grandTotals: viewGrandTotals
   };
 
   const handleExport = (format: 'Excel' | 'CSV' | 'PDF') => {
@@ -325,12 +353,19 @@ export function ReportWorkspace({
 
             <>
             <ReportHeading definition={definition} />
+            {pivot && pivot.pivotColumnCount > pivot.pivotColumnsShown &&
+              <p className="border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-2xs text-amber-800" role="status">
+                  The Columns fields have {pivot.pivotColumnCount.toLocaleString()} distinct values. Showing the first{' '}
+                  {pivot.pivotColumnsShown.toLocaleString()} as columns; the Total column still includes all of them.
+                  Add a filter, or move a field with many distinct values to Rows, to narrow this down.
+                </p>
+              }
             <ReportTable
                 definition={definition}
-                columns={visibleColumns}
+                columns={viewColumns}
                 groups={pageGroups}
                 rows={pageRows}
-                grandTotals={grandTotals}
+                grandTotals={viewGrandTotals}
                 groupLabel={definition.name}
                 collapsed={collapsedGroups}
                 onToggleGroup={(key) =>
@@ -338,9 +373,9 @@ export function ReportWorkspace({
                 prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
                 )
                 }
-                onSort={setSort}
-                onColumnChange={columnChange}
-                onReorder={reorderColumn}
+                onSort={pivot ? () => undefined : setSort}
+                onColumnChange={pivot ? () => undefined : columnChange}
+                onReorder={pivot ? () => undefined : reorderColumn}
                 selectedRows={selectedRows}
                 onSelectRow={(id) =>
                 setSelectedRows((prev) =>
@@ -357,11 +392,11 @@ export function ReportWorkspace({
           <p className="text-xs text-ink-700">
             Showing{' '}
             <span className="tabular font-medium">
-              {rows.length === 0 ? 0 : firstIndex.toLocaleString()}–
+              {viewRows.length === 0 ? 0 : firstIndex.toLocaleString()}–
               {(firstIndex + shownCount - 1).toLocaleString()}
             </span>{' '}
-            of <span className="tabular font-medium">{rows.length.toLocaleString()}</span>{' '}
-            records
+            of <span className="tabular font-medium">{viewRows.length.toLocaleString()}</span>{' '}
+            {pivot ? 'rows' : 'records'}
           </p>
           <div className="flex items-center gap-1.5">
             <label className="text-2xs uppercase tracking-wide text-ink-500" htmlFor="page-size">

@@ -53,7 +53,7 @@ export function ReportView({ mode }: {mode: 'template' | 'saved';}) {
       {
         id: 'qp-invoice',
         key: 'num',
-        label: 'Num',
+        label: 'Invoice Number',
         dataType: 'text',
         operator: 'equals',
         value: invoice,

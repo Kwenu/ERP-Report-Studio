@@ -17,12 +17,12 @@ export function Login() {
     <div className="flex h-full w-full">
       <section className="hidden min-w-0 flex-1 flex-col justify-between bg-navy-900 px-12 py-10 text-slate-200 lg:flex">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded bg-accent-500 text-base font-bold text-white">
-            P
+          <span className="flex h-12 items-center rounded bg-white px-2.5 shadow-sm">
+            <img src="/polydime-logo.png" alt="Polydime Plastics" className="h-9 w-auto" draggable={false} />
           </span>
           <span className="leading-tight">
-            <span className="block text-sm font-semibold text-white">Polydime</span>
-            <span className="block text-xs text-slate-400">ERP Report Studio</span>
+            <span className="block text-sm font-semibold text-white">ERP Report Studio</span>
+            <span className="block text-xs text-slate-400">Polydime International</span>
           </span>
         </div>
 

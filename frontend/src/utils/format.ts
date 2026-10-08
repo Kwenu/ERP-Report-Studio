@@ -22,7 +22,7 @@ export function pad(n: number): string {
 /** ISO (yyyy-mm-dd) -> MM/DD/YYYY */
 export function formatDate(iso: string, style: 'us' | 'long' | 'iso' = 'us'): string {
   if (!iso) return '';
-  const [y, m, d] = iso.split('-').map(Number);
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number); // also accepts SQL datetimes (2026-09-01T00:00:00.000Z)
   if (!y || !m || !d) return iso;
   if (style === 'iso') return iso;
   if (style === 'long') return `${MONTHS[m - 1]} ${d}, ${y}`;

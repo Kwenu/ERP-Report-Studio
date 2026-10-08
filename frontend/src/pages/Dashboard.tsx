@@ -28,7 +28,7 @@ export function Dashboard() {
   const totalReports = fixedTemplates.length + savedReports.length;
   const summary = [
   { label: 'Total Reports', value: totalReports, icon: <FileTextIcon className="h-4 w-4" />, to: '/reports/mine' },
-  { label: 'Fixed Reports', value: fixedTemplates.length, icon: <LayersIcon className="h-4 w-4" />, to: '/reports/fixed' },
+  { label: 'Sales Report - Mr. Johann', value: fixedTemplates.length, icon: <LayersIcon className="h-4 w-4" />, to: '/reports/fixed' },
   { label: 'Custom Reports', value: savedReports.length, icon: <WrenchIcon className="h-4 w-4" />, to: '/reports/mine' },
   { label: 'Recently Viewed', value: recentlyViewed.length, icon: <ClockIcon className="h-4 w-4" />, to: '/reports/mine' },
   { label: 'Scheduled Reports', value: schedules.filter((s) => s.status === 'Active').length, icon: <StarIcon className="h-4 w-4" />, to: '/scheduled' }];
@@ -57,7 +57,7 @@ export function Dashboard() {
     to: '/builder/new'
   },
   {
-    label: 'View Fixed Reports',
+    label: 'Open Sales Report - Mr. Johann',
     description: 'The four standard accounting reports.',
     icon: <DatabaseIcon className="h-4 w-4" />,
     to: '/reports/fixed'
@@ -70,7 +70,7 @@ export function Dashboard() {
         title="Reporting Overview"
         subtitle={
         <span className="flex flex-wrap items-center gap-2">
-            <span>Polydime ERP · Reporting period April – May 2023</span>
+            <span>Polydime ERP · Reporting period Jan 2025 – October 2026</span>
             <button
             type="button"
             onClick={() => setStatusOpen(true)}

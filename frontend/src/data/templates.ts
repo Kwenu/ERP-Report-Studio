@@ -6,6 +6,10 @@ import type {
   ReportColumn,
   ReportDefinition } from
 '../types/erp';
+import { financialYearToDate } from '../utils/period';
+
+/** Default period of the fixed sales reports: start of the current financial year up to today (editable on screen). */
+const defaultPeriod = financialYearToDate();
 
 export function defaultFormat(dataType: DataType): ColumnFormat {
   switch (dataType) {
@@ -98,12 +102,12 @@ export const salesByCustomerDetail: ReportDefinition = {
   category: 'Sales',
   dataset: 'salesLines',
   basis: 'Accrual',
-  dateFrom: '2026-09-01',
-  dateTo: '2026-09-30',
+  dateFrom: defaultPeriod.from,
+  dateTo: defaultPeriod.to,
   groupBy: 'name',
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
-  makeColumn('Invoices.InvoiceNumber', 'num', 'Num', 'text', { width: 100, locked: true }),
+  makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
   makeColumn('Customers.CustomerName', 'name', 'Name', 'text', { width: 200, locked: true }),
   makeColumn('Invoices.Terms', 'terms', 'Terms', 'text', { width: 110, locked: true }),
   makeColumn('Invoices.DueDate', 'dueDate', 'Due Date', 'date', { width: 100, locked: true }),
@@ -137,11 +141,13 @@ export const averageDaysToPay: ReportDefinition = {
   category: 'Receivables',
   subtitle: 'All Transactions',
   dataset: 'paymentTxns',
+  dateFrom: defaultPeriod.from,
+  dateTo: defaultPeriod.to,
   groupBy: 'name',
   weightedAverage: false,
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
-  makeColumn('Invoices.InvoiceNumber', 'num', 'Num', 'text', { width: 100, locked: true }),
+  makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
   makeColumn('Invoices.PaidStatus', 'paid', 'Paid', 'text', { width: 70, locked: true, align: 'center' }),
   makeColumn('Invoices.TotalAmount', 'amount', 'Amount', 'currency', {
     width: 130,
@@ -172,12 +178,12 @@ export const salesByRepDetail: ReportDefinition = {
   'Invoice line detail grouped by sales representative for the selected transaction date range.',
   category: 'Sales',
   dataset: 'salesLines',
-  dateFrom: '2026-09-01',
-  dateTo: '2026-09-30',
+  dateFrom: defaultPeriod.from,
+  dateTo: defaultPeriod.to,
   groupBy: 'rep',
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
-  makeColumn('Invoices.InvoiceNumber', 'num', 'Num', 'text', { width: 100, locked: true }),
+  makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
   makeColumn('Customers.CustomerName', 'name', 'Name', 'text', { width: 200, locked: true }),
   makeColumn('Invoices.Terms', 'terms', 'Terms', 'text', { width: 110, locked: true }),
   makeColumn('Invoices.Memo', 'memo', 'Memo', 'text', { width: 190, locked: true }),
@@ -209,14 +215,16 @@ export const openInvoicesReport: ReportDefinition = {
   id: 'open-invoices',
   name: 'Open Invoices',
   description:
-  'All unpaid customer documents as of today with aging days and open balance by customer.',
+  'All unpaid customer documents in the selected date range with aging days and open balance by customer.',
   category: 'Receivables',
   dataset: 'openInvoices',
+  dateFrom: defaultPeriod.from,
+  dateTo: defaultPeriod.to,
   groupBy: 'name',
   columns: [
   makeColumn('Invoices.Type', 'type', 'Type', 'text', { width: 110, locked: true }),
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
-  makeColumn('Invoices.InvoiceNumber', 'num', 'Num', 'text', { width: 100, locked: true }),
+  makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
   makeColumn('Invoices.PONumber', 'po', 'P.O. #', 'text', { width: 110, locked: true }),
   makeColumn('Invoices.Terms', 'terms', 'Terms', 'text', { width: 120, locked: true }),
   makeColumn('Invoices.Aging', 'aging', 'Aging', 'integer', {

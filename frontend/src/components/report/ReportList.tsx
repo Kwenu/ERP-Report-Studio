@@ -81,10 +81,21 @@ export function ReportList({
         description={emptyDescription} /> :
 
 
-      <table className="w-full">
+      <table className="w-full table-fixed [&_td]:break-words">
+          <colgroup>
+            <col className="w-11" />
+            <col className="w-[22%]" />
+            <col className="w-[11%]" />
+            <col className="w-[9%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            {showActions && <col className="w-[132px]" />}
+          </colgroup>
           <thead>
             <tr className="border-b border-line bg-surface-muted text-left text-2xs uppercase tracking-wide text-ink-500">
-              <th scope="col" className="w-12 px-2 py-1.5" />
+              <th scope="col" className="px-2 py-1.5" />
               <th scope="col" className="px-3 py-1.5 font-semibold">Report Name</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Type</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Category</th>
@@ -92,7 +103,7 @@ export function ReportList({
               <th scope="col" className="px-3 py-1.5 font-semibold">Visibility</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Last Modified</th>
               <th scope="col" className="px-3 py-1.5 font-semibold">Last Run</th>
-              {showActions && <th scope="col" className="w-[150px] px-3 py-1.5 text-right font-semibold">Actions</th>}
+              {showActions && <th scope="col" className="px-3 py-1.5 text-right font-semibold">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -129,7 +140,7 @@ export function ReportList({
                   <p className="truncate text-2xs text-ink-500">{report.description}</p>
                 </td>
                 <td className="px-3 py-1.5">
-                  <Badge tone={report.type === 'Fixed Template' ? 'navy' : 'blue'}>
+                  <Badge tone={report.type === 'Fixed Template' ? 'navy' : 'blue'} className="whitespace-normal text-center leading-tight">
                     {report.type}
                   </Badge>
                 </td>

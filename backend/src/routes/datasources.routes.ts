@@ -199,6 +199,77 @@ datasourcesRouter.get(
   })
 );
 
+/** Makes any ERP value safe to send as JSON and to show in a report cell (no Buffers, no nested objects). */
+function cellValue(v: unknown): string | number | boolean | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string') return v;
+  if (typeof v === 'bigint') return v.toString();
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString();
+  if (Buffer.isBuffer(v)) return `[binary ${v.length} bytes]`;
+  return String(v);
+}
+
+/**
+ * POST /api/v1/datasources/:id/table-rows { table, columns: [...], limit }
+ * Rows of ONE real ERP table for the Report Builder. The table and every column are checked against the
+ * live catalogue and quoted; nothing from the request is placed in the SQL text unchecked.
+ */
+datasourcesRouter.post(
+  '/:id/table-rows',
+  asyncHandler(async (req, res) => {
+    const row = await findDataSource(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Data source not found.' });
+
+    let schema;
+    try {
+      schema = await getSchemaFor(row);
+    } catch (err: any) {
+      await invalidateConnector(row.id);
+      return res.status(502).json({ error: `Could not read the ERP schema: ${err.message}` });
+    }
+
+    const { table: tableName, columns, limit } = req.body ?? {};
+    const table = schema.tables.find((t) => t.name === tableName);
+    if (!table) return res.status(400).json({ error: `Table "${tableName}" was not found in this database.` });
+
+    const requested: string[] = Array.isArray(columns) ? columns.map(String) : [];
+    const known = new Set(table.fields.map((f) => f.name));
+    // Calculated fields / constants can appear in the request; only real columns of this table are selected.
+    const wanted = [...new Set(requested.filter((c) => known.has(c)))];
+    if (!wanted.length) return res.status(400).json({ error: `Choose at least one field of ${table.name}.` });
+
+    const max = Math.min(Math.max(Number(limit) || 20000, 1), 20000);
+    const mssql = row.database_type !== 'PostgreSQL';
+    const q = (n: string) => (mssql ? `[${n.replace(/]/g, ']]')}]` : `"${n.replace(/"/g, '""')}"`);
+    const from = table.name.split('.').map(q).join('.');
+    const cols = wanted.map(q).join(', ');
+    // One extra row tells the report the table holds more than was loaded.
+    const sql = mssql
+      ? `SELECT TOP (${max + 1}) ${cols} FROM ${from}`
+      : `SELECT ${cols} FROM ${from} LIMIT ${max + 1}`;
+
+    const started = Date.now();
+    try {
+      const result = await getConnector(row).query(sql);
+      const truncated = result.rows.length > max;
+      const rows = (truncated ? result.rows.slice(0, max) : result.rows).map((r) => {
+        const out: Record<string, string | number | boolean | null> = {};
+        for (const c of wanted) out[c] = cellValue(r[c]);
+        return out;
+      });
+      res.json({
+        rows,
+        records: truncated ? max + 1 : rows.length,
+        truncated,
+        executionMs: Date.now() - started,
+        completedAt: new Date().toISOString()
+      });
+    } catch (err: any) {
+      res.status(502).json({ error: `The ERP database rejected the query on ${table.name}: ${err.message}` });
+    }
+  })
+);
+
 /** POST /api/v1/datasources/:id/test — real connectivity test against the stored credentials. */
 datasourcesRouter.post(
   '/:id/test',

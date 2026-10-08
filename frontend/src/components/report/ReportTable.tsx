@@ -12,6 +12,7 @@ import {
 import type { ReportColumn, ReportDefinition, Row, SortRule } from '../../types/erp';
 import type { GroupBlock } from '../../utils/reportEngine';
 import { formatCell, formatValue } from '../../utils/format';
+import { InvoicePdfButton } from './InvoicePdfButton';
 import { cx } from '../../utils/ui';
 
 interface ReportTableProps {
@@ -164,7 +165,13 @@ export function ReportTable({
           )}
           title={formatCell(row, col)}>
           
-            {formatCell(row, col)}
+            {col.key === 'num' && row.num && definition.dataset !== 'erpTable' ?
+          <span className="flex items-center gap-1.5">
+                <span className="min-w-0 truncate">{formatCell(row, col)}</span>
+                <InvoicePdfButton invoiceNo={String(row.num)} />
+              </span> :
+
+          formatCell(row, col)}
           </td>
         )}
       </tr>);

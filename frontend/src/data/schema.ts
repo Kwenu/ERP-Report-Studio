@@ -60,7 +60,7 @@ build('Customers', 'Customer master records', 4250, '2026-09-09T06:15:00Z', 'Act
 ),
 build('Invoices', 'Sales invoice headers', 128540, '2026-09-09T06:15:00Z', 'Active', [
 ['InvoiceID', 'Invoice ID', 'integer', 'Primary key', '88214', 'invoiceId', { isKey: true }],
-['InvoiceNumber', 'Num', 'text', 'Document number', 'INV-24188', 'num'],
+['InvoiceNumber', 'Invoice Number', 'text', 'Document number', 'INV-24188', 'num'],
 ['InvoiceDate', 'Date', 'date', 'Transaction date', '04/09/2023', 'date'],
 ['CustomerID', 'Customer ID', 'integer', 'FK to Customers', '10428', 'customerId', { fk: 'Customers.CustomerID' }],
 ['SalesRepID', 'Sales Rep ID', 'integer', 'FK to Employees', '7', 'repId', { fk: 'Employees.EmployeeID' }],

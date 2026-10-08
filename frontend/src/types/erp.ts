@@ -56,8 +56,13 @@ export interface Relationship {
 
 export type Row = Record<string, string | number | boolean | null>;
 
+/** Where a Report Builder field was dropped: Rows = row labels, Columns = pivoted across the top, Values = measures. */
+export type ColumnZone = 'rows' | 'columns' | 'values';
+
 export interface ReportColumn {
   id: string;
+  /** Set by the Report Builder. Reports without it (fixed templates) stay plain detail listings. */
+  zone?: ColumnZone;
   /** Dataset key this column reads */
   key: string;
   label: string;
@@ -103,7 +108,8 @@ export interface SortRule {
   dir: 'asc' | 'desc';
 }
 
-export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices';
+/** The three curated datasets, or 'erpTable' = one real table of the connected ERP database (see sourceTable). */
+export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'erpTable';
 
 export interface CalculatedField {
   key: string;
@@ -126,6 +132,8 @@ export interface ReportDefinition {
   /** For customized copies of a protected template */
   templateId?: string;
   dataset: DatasetId;
+  /** When dataset is 'erpTable': the ERP table this report reads, e.g. "fDebtor". */
+  sourceTable?: string;
   subtitle?: string;
   basis?: 'Accrual' | 'Cash';
   dateFrom?: string;

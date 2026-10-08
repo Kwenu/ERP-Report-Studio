@@ -32,12 +32,12 @@ export function Header() {
   const toggle = (menu: 'bell' | 'user' | 'help') => setOpenMenu((prev) => prev === menu ? null : menu);
   return <header className="relative z-40 flex h-12 shrink-0 items-center gap-4 border-b border-navy-950 bg-navy-900 px-3">
       <Link to="/" className="flex shrink-0 items-center gap-2.5">
-        <span className="flex h-7 w-7 items-center justify-center rounded bg-accent-500 text-sm font-bold text-white">
-          P
+        <span className="flex h-8 items-center rounded bg-white px-1.5 shadow-sm">
+          <img src="/polydime-logo.png" alt="Polydime Plastics" className="h-6 w-auto" draggable={false} />
         </span>
         <span className="leading-tight">
-          <span className="block text-[13px] font-semibold text-white">Polydime</span>
-          <span className="block text-2xs text-slate-400">ERP Report Studio</span>
+          <span className="block text-[13px] font-semibold text-white">ERP Report Studio</span>
+          <span className="block text-2xs text-slate-400">Polydime International</span>
         </span>
       </Link>
 

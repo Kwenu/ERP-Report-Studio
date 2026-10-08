@@ -333,3 +333,17 @@ export async function fetchDatasetRows(
   });
   return { ...result, truncated: result.records > result.rows.length };
 }
+
+
+/** POST /datasources/:id/table-rows — the rows of one real ERP table (only the columns the report uses). */
+export async function fetchTableRows(
+  sourceId: string,
+  table: string,
+  columns: string[]
+): Promise<{ rows: Row[]; records: number; executionMs: number; completedAt: string; truncated: boolean }> {
+  return http(`/datasources/${sourceId}/table-rows`, {
+    method: 'POST',
+    body: JSON.stringify({ table, columns, limit: 20000 }),
+    timeoutMs: 120_000
+  });
+}
