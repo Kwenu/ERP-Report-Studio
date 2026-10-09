@@ -60,6 +60,7 @@ export async function loadInvoice(conn: ErpConnector, refNo: string): Promise<In
       date,
       dueDate: addDays(date, creditDays),
       reference: str(head.ManuRef),
+      manualNo: str(head.ManuRef),
       payType: str(head.PayType),
       currency: str(head.CurCode),
       currencyRate: head.CurRate === null || head.CurRate === undefined ? null : num(head.CurRate),

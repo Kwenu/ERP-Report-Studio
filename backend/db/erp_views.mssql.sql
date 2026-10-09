@@ -22,6 +22,9 @@ SELECT
   c.CustomerID                AS customerId,
   i.InvoiceDate               AS [date],
   i.InvoiceNumber             AS num,
+  CAST(NULL AS nvarchar(50))  AS manualNo,   -- map to your 'manual number' column
+  CAST(NULL AS nvarchar(10))  AS currency,   -- map to the invoice currency code (empty = Rs.)
+  CAST(NULL AS nvarchar(100)) AS company,    -- map to the company column
   c.CustomerName              AS name,
   i.Terms                     AS terms,
   i.DueDate                   AS dueDate,
@@ -63,6 +66,9 @@ SELECT
   i.InvoiceID                 AS invoiceId,
   i.InvoiceDate               AS [date],
   i.InvoiceNumber             AS num,
+  CAST(NULL AS nvarchar(50))  AS manualNo,   -- map to your 'manual number' column
+  CAST(NULL AS nvarchar(10))  AS currency,   -- map to the invoice currency code (empty = Rs.)
+  CAST(NULL AS nvarchar(100)) AS company,    -- map to the company column
   i.PaidStatus                AS paid,
   i.TotalAmount               AS amount,
   c.CustomerName              AS name,
@@ -87,6 +93,9 @@ SELECT
   i.[Type]                    AS [type],
   i.InvoiceDate               AS [date],
   i.InvoiceNumber             AS num,
+  CAST(NULL AS nvarchar(50))  AS manualNo,   -- map to your 'manual number' column
+  CAST(NULL AS nvarchar(10))  AS currency,   -- map to the invoice currency code (empty = Rs.)
+  CAST(NULL AS nvarchar(100)) AS company,    -- map to the company column
   i.PONumber                  AS po,
   i.Terms                     AS terms,
   CASE WHEN DATEDIFF(day, i.DueDate, CAST(GETDATE() AS date)) > 0

@@ -10,8 +10,8 @@ import {
   PinOffIcon } from
 'lucide-react';
 import type { ReportColumn, ReportDefinition, Row, SortRule } from '../../types/erp';
-import type { GroupBlock } from '../../utils/reportEngine';
-import { formatCell, formatValue } from '../../utils/format';
+import type { CurrencyTotals, GroupBlock } from '../../utils/reportEngine';
+import { formatCell, formatMoney, formatValue } from '../../utils/format';
 import { InvoicePdfButton } from './InvoicePdfButton';
 import { cx } from '../../utils/ui';
 
@@ -21,6 +21,13 @@ interface ReportTableProps {
   groups: GroupBlock[] | null;
   rows: Row[];
   grandTotals: Record<string, number | null>;
+  /** Grand totals of the money columns split by currency (omitted when the report has no currency column). */
+  grandCurrencyTotals?: CurrencyTotals;
+  /**
+   * The grand total belongs at the very end of the report, so it is drawn only on the last page.
+   * (Customer / group subtotals are always drawn: a group is never split across pages.)
+   */
+  isLastPage: boolean;
   groupLabel: string;
   collapsed: string[];
   onToggleGroup: (key: string) => void;
@@ -47,6 +54,8 @@ export function ReportTable({
   groups,
   rows,
   grandTotals,
+  grandCurrencyTotals,
+  isLastPage,
   groupLabel,
   collapsed,
   onToggleGroup,
@@ -87,7 +96,11 @@ export function ReportTable({
     window.addEventListener('mouseup', up);
   };
 
-  const totalCells = (totals: Record<string, number | null>, label: string, variant: 'group' | 'grand') =>
+  const totalCells = (
+  totals: Record<string, number | null>,
+  label: string,
+  variant: 'group' | 'grand',
+  currencyTotals?: CurrencyTotals) =>
   <tr
     className={cx(
       'tabular font-semibold',
@@ -100,6 +113,10 @@ export function ReportTable({
       {columns.map((col, idx) => {
       const value = totals[col.key];
       const showLabel = idx === 0;
+      const perCurrency = currencyTotals?.[col.key];
+      const currencies = perCurrency ?
+      Object.keys(perCurrency).sort((a, b) => a === 'LKR' ? -1 : b === 'LKR' ? 1 : a.localeCompare(b)) :
+      [];
       return (
         <td
           key={col.id}
@@ -117,6 +134,11 @@ export function ReportTable({
           
             {showLabel ?
           label :
+          currencies.length > 0 ?
+          // Rs. and $ are never added together: one line per currency
+          currencies.map((cur) =>
+          <div key={cur}>{formatMoney(perCurrency![cur], cur, col.decimals)}</div>
+          ) :
           value === null || value === undefined ?
           '' :
           formatValue(value, col.format, col.decimals)}
@@ -168,7 +190,7 @@ export function ReportTable({
             {col.key === 'num' && row.num && definition.dataset !== 'erpTable' ?
           <span className="flex items-center gap-1.5">
                 <span className="min-w-0 truncate">{formatCell(row, col)}</span>
-                <InvoicePdfButton invoiceNo={String(row.num)} />
+                <InvoicePdfButton invoiceNo={String(row.num)} manualNo={row.manualNo ? String(row.manualNo) : undefined} />
               </span> :
 
           formatCell(row, col)}
@@ -349,15 +371,15 @@ export function ReportTable({
                     </tr>
                     {!isCollapsed && group.rows.map((row, i) => dataRow(row, i))}
                     {definition.showSubtotals &&
-                totalCells(group.totals, `Total ${group.key}`, 'group')}
+                totalCells(group.totals, `Total ${group.key}`, 'group', group.currencyTotals)}
                   </Fragment>);
 
           }) :
           rows.map((row, i) => dataRow(row, i))}
 
-          {definition.showGrandTotal && (
+          {definition.showGrandTotal && isLastPage && (
           groups ? groups.length > 0 : rows.length > 0) &&
-          totalCells(grandTotals, 'TOTAL', 'grand')}
+          totalCells(grandTotals, 'TOTAL', 'grand', grandCurrencyTotals)}
         </tbody>
       </table>
 

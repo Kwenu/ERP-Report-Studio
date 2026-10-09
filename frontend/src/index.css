@@ -60,4 +60,19 @@ body {
   table {
     font-size: 10px;
   }
+  /* The report is laid out in full (not clipped to the screen) so a long report prints on as many pages as it needs;
+     the column headings repeat on each page and the grand total appears once, after the last row. */
+  .report-print-root,
+  .report-print-root *,
+  :has(.report-print-root) {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
 }

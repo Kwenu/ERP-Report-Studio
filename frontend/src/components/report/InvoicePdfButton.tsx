@@ -10,7 +10,7 @@ import { fetchInvoicePdf } from '../../services/invoiceApi';
  * viewer window (download / open in a new tab included). The PDF is generated on demand from the
  * ERP data — nothing is stored.
  */
-export function InvoicePdfButton({ invoiceNo }: {invoiceNo: string;}) {
+export function InvoicePdfButton({ invoiceNo, manualNo }: {invoiceNo: string;manualNo?: string;}) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [url, setUrl] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function InvoicePdfButton({ invoiceNo }: {invoiceNo: string;}) {
     <>
       <button
         type="button"
-        title={`View invoice ${invoiceNo} as PDF`}
+        title={`View invoice ${invoiceNo}${manualNo ? ` (Manual No. ${manualNo})` : ''} as PDF`}
         aria-label={`View invoice ${invoiceNo} as PDF`}
         onClick={(e) => {
           e.stopPropagation();
@@ -76,7 +76,7 @@ export function InvoicePdfButton({ invoiceNo }: {invoiceNo: string;}) {
             open
             onClose={close}
             width="max-w-5xl"
-            title={`Invoice ${invoiceNo}`}
+            title={manualNo ? `Invoice ${invoiceNo} · Manual No. ${manualNo}` : `Invoice ${invoiceNo}`}
             description="Generated from the ERP database when you opened it — no PDF file is stored."
             footer={
             <>

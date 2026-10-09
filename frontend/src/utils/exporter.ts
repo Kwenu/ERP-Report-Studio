@@ -1,6 +1,6 @@
 import type { ReportColumn, ReportDefinition, Row } from '../types/erp';
-import type { GroupBlock } from './reportEngine';
-import { formatCell, formatDate, formatValue } from './format';
+import type { CurrencyTotals, GroupBlock } from './reportEngine';
+import { formatCell, formatDate, formatMoney, formatValue } from './format';
 
 interface ExportPayload {
   definition: ReportDefinition;
@@ -8,6 +8,7 @@ interface ExportPayload {
   groups: GroupBlock[] | null;
   rows: Row[];
   grandTotals: Record<string, number | null>;
+  grandCurrencyTotals?: CurrencyTotals;
 }
 
 function download(filename: string, mime: string, content: string) {
@@ -44,30 +45,38 @@ function bodyMatrix(payload: ExportPayload): string[][] {
   const matrix: string[][] = [];
   matrix.push(columns.map((c) => c.label));
 
+  /** Money totals are written one currency per line of the cell (never added across currencies). */
   const totalRow = (
   totals: Record<string, number | null>,
-  label: string)
+  label: string,
+  currencyTotals?: CurrencyTotals)
   : string[] =>
-  columns.map((c, i) =>
-  i === 0 ?
-  label :
-  totals[c.key] === null || totals[c.key] === undefined ?
-  '' :
-  formatValue(totals[c.key], c.format, c.decimals)
-  );
+  columns.map((c, i) => {
+    if (i === 0) return label;
+    const per = currencyTotals?.[c.key];
+    if (per && Object.keys(per).length) {
+      return Object.keys(per).
+      sort((a, b) => a === 'LKR' ? -1 : b === 'LKR' ? 1 : a.localeCompare(b)).
+      map((cur) => formatMoney(per[cur], cur, c.decimals)).
+      join(' / ');
+    }
+    return totals[c.key] === null || totals[c.key] === undefined ?
+    '' :
+    formatValue(totals[c.key], c.format, c.decimals);
+  });
 
   if (groups) {
     groups.forEach((group) => {
       matrix.push([group.key]);
       group.rows.forEach((row) => matrix.push(columns.map((c) => formatCell(row, c))));
-      if (definition.showSubtotals) matrix.push(totalRow(group.totals, `Total ${group.key}`));
+      if (definition.showSubtotals) matrix.push(totalRow(group.totals, `Total ${group.key}`, group.currencyTotals));
       matrix.push([]);
     });
   } else {
     rows.forEach((row) => matrix.push(columns.map((c) => formatCell(row, c))));
   }
 
-  if (definition.showGrandTotal) matrix.push(totalRow(grandTotals, 'TOTAL'));
+  if (definition.showGrandTotal) matrix.push(totalRow(grandTotals, 'TOTAL', payload.grandCurrencyTotals));
   return matrix;
 }
 

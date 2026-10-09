@@ -61,6 +61,9 @@ build('Customers', 'Customer master records', 4250, '2026-09-09T06:15:00Z', 'Act
 build('Invoices', 'Sales invoice headers', 128540, '2026-09-09T06:15:00Z', 'Active', [
 ['InvoiceID', 'Invoice ID', 'integer', 'Primary key', '88214', 'invoiceId', { isKey: true }],
 ['InvoiceNumber', 'Invoice Number', 'text', 'Document number', 'INV-24188', 'num'],
+['ManualNumber', 'Manual No.', 'text', 'Manual reference typed in when the invoice was entered', '1042', 'manualNo', { nullable: true }],
+['Currency', 'Currency', 'text', 'Invoice currency (LKR / USD)', 'LKR', 'currency', { nullable: true }],
+['Company', 'Company', 'text', 'Company the invoice belongs to', 'Polydime', 'company', { nullable: true }],
 ['InvoiceDate', 'Date', 'date', 'Transaction date', '04/09/2023', 'date'],
 ['CustomerID', 'Customer ID', 'integer', 'FK to Customers', '10428', 'customerId', { fk: 'Customers.CustomerID' }],
 ['SalesRepID', 'Sales Rep ID', 'integer', 'FK to Employees', '7', 'repId', { fk: 'Employees.EmployeeID' }],

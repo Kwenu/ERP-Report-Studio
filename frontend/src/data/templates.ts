@@ -108,7 +108,9 @@ export const salesByCustomerDetail: ReportDefinition = {
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
   makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
+  makeColumn('Invoices.ManualNumber', 'manualNo', 'Manual No.', 'text', { width: 120, locked: true }),
   makeColumn('Customers.CustomerName', 'name', 'Name', 'text', { width: 200, locked: true }),
+  makeColumn('Invoices.Company', 'company', 'Company', 'text', { width: 150, locked: true }),
   makeColumn('Invoices.Terms', 'terms', 'Terms', 'text', { width: 110, locked: true }),
   makeColumn('Invoices.DueDate', 'dueDate', 'Due Date', 'date', { width: 100, locked: true }),
   makeColumn('Items.ItemName', 'item', 'Item', 'text', { width: 210, locked: true }),
@@ -127,8 +129,7 @@ export const salesByCustomerDetail: ReportDefinition = {
     width: 130,
     aggregation: 'sum',
     locked: true
-  }),
-  makeColumn('Invoices.PONumber', 'other2', 'Other 2', 'text', { width: 110, locked: true })]
+  })]
 
 };
 
@@ -148,6 +149,7 @@ export const averageDaysToPay: ReportDefinition = {
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
   makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
+  makeColumn('Invoices.ManualNumber', 'manualNo', 'Manual No.', 'text', { width: 120, locked: true }),
   makeColumn('Invoices.PaidStatus', 'paid', 'Paid', 'text', { width: 70, locked: true, align: 'center' }),
   makeColumn('Invoices.TotalAmount', 'amount', 'Amount', 'currency', {
     width: 130,
@@ -184,7 +186,9 @@ export const salesByRepDetail: ReportDefinition = {
   columns: [
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
   makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
+  makeColumn('Invoices.ManualNumber', 'manualNo', 'Manual No.', 'text', { width: 120, locked: true }),
   makeColumn('Customers.CustomerName', 'name', 'Name', 'text', { width: 200, locked: true }),
+  makeColumn('Invoices.Company', 'company', 'Company', 'text', { width: 150, locked: true }),
   makeColumn('Invoices.Terms', 'terms', 'Terms', 'text', { width: 110, locked: true }),
   makeColumn('Invoices.Memo', 'memo', 'Memo', 'text', { width: 190, locked: true }),
   makeColumn('Items.ItemName', 'item', 'Item', 'text', { width: 200, locked: true }),
@@ -225,7 +229,7 @@ export const openInvoicesReport: ReportDefinition = {
   makeColumn('Invoices.Type', 'type', 'Type', 'text', { width: 110, locked: true }),
   makeColumn('Invoices.InvoiceDate', 'date', 'Date', 'date', { width: 96, locked: true }),
   makeColumn('Invoices.InvoiceNumber', 'num', 'Invoice Number', 'text', { width: 150, locked: true }),
-  makeColumn('Invoices.PONumber', 'po', 'P.O. #', 'text', { width: 110, locked: true }),
+  makeColumn('Invoices.ManualNumber', 'manualNo', 'Manual No.', 'text', { width: 120, locked: true }),
   makeColumn('Invoices.Terms', 'terms', 'Terms', 'text', { width: 120, locked: true }),
   makeColumn('Invoices.Aging', 'aging', 'Aging', 'integer', {
     width: 90,

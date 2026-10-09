@@ -6,7 +6,7 @@ import type {
   Row,
   SortRule } from
 '../types/erp';
-import { formatValue } from './format';
+import { cellCurrency, formatValue } from './format';
 
 /* ------------------------------------------------------------------ *
  * The report engine turns a structured report definition + a dataset  *
@@ -14,10 +14,15 @@ import { formatValue } from './format';
  * definition, and this module resolves it.                            *
  * ------------------------------------------------------------------ */
 
+/** column key -> currency code -> total. Only present for money columns of reports whose rows carry a currency. */
+export type CurrencyTotals = Record<string, Record<string, number>>;
+
 export interface GroupBlock {
   key: string;
   rows: Row[];
   totals: Record<string, number | null>;
+  /** Sums of the money columns split by currency (Rs. and $ must never be added together). */
+  currencyTotals?: CurrencyTotals;
 }
 
 export interface ResolvedReport {
@@ -167,6 +172,27 @@ options: {weighted?: boolean;weightKey?: string;} = {})
   return totals;
 }
 
+/**
+ * Sums of the summed money columns, split by the rows' currency. A report that mixes LKR and USD invoices
+ * must not add the two together, so its totals are shown as one figure per currency.
+ */
+export function aggregateByCurrency(rows: Row[], columns: ReportColumn[]): CurrencyTotals {
+  const out: CurrencyTotals = {};
+  if (!rows.length) return out;
+  for (const col of columns) {
+    if (col.format !== 'currency' || col.aggregation !== 'sum') continue;
+    const buckets: Record<string, number> = {};
+    for (const row of rows) {
+      const cur = cellCurrency(row, col);
+      const n = numeric(row[col.key]);
+      if (!cur || n === null) continue;
+      buckets[cur] = (buckets[cur] ?? 0) + n;
+    }
+    if (Object.keys(buckets).length) out[col.key] = buckets;
+  }
+  return out;
+}
+
 export function groupRows(rows: Row[], groupKey: string): GroupBlock[] {
   const map = new Map<string, Row[]>();
   rows.forEach((row) => {
@@ -177,7 +203,7 @@ export function groupRows(rows: Row[], groupKey: string): GroupBlock[] {
   });
   return Array.from(map.entries()).
   sort((a, b) => a[0].localeCompare(b[0])).
-  map(([key, groupedRows]) => ({ key, rows: groupedRows, totals: {} }));
+  map(([key, groupedRows]) => ({ key, rows: groupedRows, totals: {} as Record<string, number | null> }));
 }
 
 export function resolveReport(
@@ -218,7 +244,8 @@ search = '')
   const groups = definition.groupBy ?
   groupRows(rows, definition.groupBy).map((g) => ({
     ...g,
-    totals: aggregate(g.rows, visible, aggOptions)
+    totals: aggregate(g.rows, visible, aggOptions),
+    currencyTotals: aggregateByCurrency(g.rows, visible)
   })) :
   null;
 

@@ -1,6 +1,10 @@
 USE [POLYDIME_ERP];
 GO
 
+-- The helper view used by the previous version is no longer needed (company is read straight from fInvhed.ComCode).
+IF OBJECT_ID('dbo.v_invoice_company', 'V') IS NOT NULL DROP VIEW dbo.v_invoice_company;
+GO
+
 IF OBJECT_ID('dbo.v_sales_lines', 'V') IS NOT NULL DROP VIEW dbo.v_sales_lines;
 GO
 CREATE VIEW dbo.v_sales_lines AS
@@ -10,6 +14,9 @@ SELECT
   h.DebCode                                    AS customerId,
   CAST(h.TxnDate AS date)                      AS [date],
   h.RefNo                                      AS num,
+  h.ManuRef                                    AS manualNo,
+  h.CurCode                                    AS currency,
+  NULLIF(LTRIM(RTRIM(CAST(h.ComCode AS nvarchar(100)))), '')  AS company,
   deb.DebName                                  AS name,
   h.CrdTemCode                                 AS terms,
   CAST(DATEADD(day, CAST(ISNULL(deb.CrdPeriod, 0) AS int), h.TxnDate) AS date) AS dueDate,
@@ -17,8 +24,8 @@ SELECT
   it.ICatCode                                  AS category,
   CASE WHEN h.TotalAmt > 0 AND ISNULL(rc.received, 0) >= h.TotalAmt - 0.005 THEN 'Yes' ELSE 'No' END AS paid,
   d.Qty                                        AS qty,
-  d.BSellPrice                                 AS salesPrice,
-  d.BAmt                                       AS amount,
+  d.SellPrice                                  AS salesPrice,   -- invoice currency (see "currency"), not the base-currency B* columns
+  d.Amt                                        AS amount,
   h.RepCode                                    AS rep,
   sr.RepName                                   AS repName,
   CAST(NULL AS nvarchar(100))                  AS department,
@@ -53,14 +60,17 @@ SELECT
   h.RecordId                                   AS invoiceId,
   CAST(h.TxnDate AS date)                      AS [date],
   h.RefNo                                      AS num,
+  h.ManuRef                                    AS manualNo,
+  h.CurCode                                    AS currency,
+  NULLIF(LTRIM(RTRIM(CAST(h.ComCode AS nvarchar(100)))), '')  AS company,
   CASE WHEN h.TotalAmt > 0 AND ISNULL(rc.received, 0) >= h.TotalAmt - 0.005 THEN 'Yes' ELSE 'No' END AS paid,
-  h.BTotalAmt                                  AS amount,
+  h.TotalAmt                                   AS amount,       -- invoice currency
   deb.DebName                                  AS name,
   h.CrdTemCode                                 AS terms,
   CAST(DATEADD(day, CAST(ISNULL(deb.CrdPeriod, 0) AS int), h.TxnDate) AS date) AS dueDate,
   CAST(rh.TxnDate AS date)                     AS paidDate,
   DATEDIFF(day, DATEADD(day, CAST(ISNULL(deb.CrdPeriod, 0) AS int), h.TxnDate), rh.TxnDate) AS avgDaysToPay,
-  r.BAmt                                       AS paidAmount,
+  r.Amt                                        AS paidAmount,   -- invoice currency
   rh.PayType                                   AS paymentMethod,
   h.RepCode                                    AS rep,
   sr.RepName                                   AS repName,
@@ -82,6 +92,9 @@ SELECT
   'Invoice'                                    AS [type],
   CAST(h.TxnDate AS date)                      AS [date],
   h.RefNo                                      AS num,
+  h.ManuRef                                    AS manualNo,
+  h.CurCode                                    AS currency,
+  NULLIF(LTRIM(RTRIM(CAST(h.ComCode AS nvarchar(100)))), '')  AS company,
   h.ManuRef                                    AS po,
   h.CrdTemCode                                 AS terms,
   CASE WHEN DATEDIFF(day, DATEADD(day, CAST(ISNULL(deb.CrdPeriod, 0) AS int), h.TxnDate), CAST(GETDATE() AS date)) > 0

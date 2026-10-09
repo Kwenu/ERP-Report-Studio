@@ -17,6 +17,8 @@ export interface InvoiceHeader {
   date: string | null; // ISO yyyy-mm-dd
   dueDate: string | null;
   reference: string;
+  /** The manual number typed in when the invoice was entered (ERP "ManuRef") */
+  manualNo: string;
   payType: string;
   currency: string;
   currencyRate: number | null;
@@ -471,6 +473,11 @@ options: RenderOptions = {})
     const noLabel = isTax ? 'Tax Invoice No.:' : 'Invoice No.:';
     put(p, noLabel, 497, 217.5, S_LABEL, serif);
     put(p, h.refNo, 497 + widthPx(serif, S_LABEL, noLabel) + 8, 217.5, S_LABEL + 0.4, serifB);
+    if (clean(h.manualNo)) {
+      // the manual number the user entered sits at the right-hand end of the same box
+      const manual = `Manual No.: ${clean(h.manualNo)}`;
+      putRight(p, manual, RIGHT - 8, 217.5, S_LABEL, serif);
+    }
 
     // --- supplier box
     box(p, 55, 238, 455, 411);

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
 import type { ErpField, ReportColumn, ReportDefinition } from '../../types/erp';
 import { columnFromField, getTemplate, cloneDefinition } from '../../data/templates';
 import {
   aggregate,
+  aggregateByCurrency,
   applyFilters,
   applySort,
   buildPivot,
@@ -80,6 +82,8 @@ export function ReportWorkspace({
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [refreshedAt, setRefreshedAt] = useState(() => new Date());
+  /** While printing / saving as PDF the whole report is laid out (not just the page on screen). */
+  const [printAll, setPrintAll] = useState(false);
 
   const visibleColumns = definition.columns.filter((c) => c.visible);
 
@@ -138,6 +142,12 @@ export function ReportWorkspace({
     [rows, definition.columns, definition.weightedAverage]
   );
 
+  const grandCurrencyTotals = useMemo(
+    () => aggregateByCurrency(rows, visibleColumns),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, definition.columns]
+  );
+
   /* Report Builder reports with Columns (cross-tab) or Rows + Values (summary) are pivoted. */
   const pivot = useMemo(
     () => isPivotActive(definition.columns) ? buildPivot(rows, definition) : null,
@@ -153,7 +163,8 @@ export function ReportWorkspace({
     definition.groupBy && !pivot ?
     groupRows(rows, definition.groupBy).map((g) => ({
       ...g,
-      totals: aggregate(g.rows, visibleColumns, aggOptions)
+      totals: aggregate(g.rows, visibleColumns, aggOptions),
+      currencyTotals: aggregateByCurrency(g.rows, visibleColumns)
     })) :
     null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,6 +182,8 @@ export function ReportWorkspace({
   const safePage = Math.min(page, pageCount - 1);
   const pageGroups = groupPages ? groupPages[safePage] : null;
   const pageRows = groupPages ? [] : viewRows.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  /** The grand total is the end of the report: it is drawn on the last page only (and once, when printing everything). */
+  const isLastPage = printAll || safePage >= pageCount - 1;
   const shownCount = pageGroups ?
   pageGroups.reduce((sum, g) => sum + g.rows.length, 0) :
   pageRows.length;
@@ -240,13 +253,22 @@ export function ReportWorkspace({
     columns: viewColumns,
     groups: allGroups,
     rows: viewRows,
-    grandTotals: viewGrandTotals
+    grandTotals: viewGrandTotals,
+    grandCurrencyTotals: pivot ? undefined : grandCurrencyTotals
+  };
+
+  /** Print / Save as PDF: lay out every row of the report (grand total once, at the very end), then print. */
+  const printReport = () => {
+    const done = () => setPrintAll(false);
+    window.addEventListener('afterprint', done, { once: true });
+    flushSync(() => setPrintAll(true));
+    exportPdf();
   };
 
   const handleExport = (format: 'Excel' | 'CSV' | 'PDF') => {
     if (format === 'CSV') exportCsv(exportPayload);else
     if (format === 'Excel') exportExcel(exportPayload);else
-    exportPdf();
+    printReport();
     logAction(`Exported report (${format})`, definition.name);
     toast.success(`${definition.name} exported to ${format}`);
   };
@@ -279,7 +301,7 @@ export function ReportWorkspace({
   };
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="report-print-root flex h-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col">
         <ReportToolbar
           definition={definition}
@@ -305,7 +327,7 @@ export function ReportWorkspace({
           onReset={resetToDefault}
           onExport={handleExport}
           onPrint={() => {
-            window.print();
+            printReport();
             logAction('Printed report', definition.name);
           }}
           onShare={() => toast.success(`Sharing link generated for ${definition.name}`)}
@@ -363,9 +385,11 @@ export function ReportWorkspace({
             <ReportTable
                 definition={definition}
                 columns={viewColumns}
-                groups={pageGroups}
-                rows={pageRows}
+                groups={printAll ? allGroups : pageGroups}
+                rows={printAll ? viewRows : pageRows}
                 grandTotals={viewGrandTotals}
+                grandCurrencyTotals={pivot ? undefined : grandCurrencyTotals}
+                isLastPage={isLastPage}
                 groupLabel={definition.name}
                 collapsed={collapsedGroups}
                 onToggleGroup={(key) =>

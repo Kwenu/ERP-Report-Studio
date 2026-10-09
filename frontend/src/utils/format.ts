@@ -58,15 +58,68 @@ export function formatNumber(value: number, decimals = 2): string {
   return value < 0 ? `(${abs})` : abs;
 }
 
+/* ------------------------------------------------------------------ *
+ * Currency. Every sales document carries its own currency (the ERP's *
+ * CurCode). Amounts are shown in that currency with its symbol:      *
+ *   LKR -> "Rs. 1,250.00"      USD -> "$1,250.00"                    *
+ * An empty code means the base currency (LKR).                       *
+ * ------------------------------------------------------------------ */
+
+export const BASE_CURRENCY = 'LKR';
+
+/** Columns that are always in the base currency, whatever the row's own currency is. */
+const BASE_CURRENCY_KEYS = new Set(['creditLimit']);
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  LKR: 'Rs.',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  INR: '₹',
+  AUD: 'A$',
+  JPY: '¥'
+};
+
+/** ERP currency code -> canonical code ("", "Rs", "LKR" -> LKR; "$", "US$", "USD" -> USD). */
+export function normalizeCurrency(raw: unknown): string {
+  const c = String(raw ?? '').trim().toUpperCase();
+  if (c === '' || c === 'LKR' || c === 'RS' || c === 'RS.' || c === 'LKR.') return 'LKR';
+  if (c === 'USD' || c === 'US$' || c === '$' || c === 'US') return 'USD';
+  return c;
+}
+
+export function currencySymbol(code: unknown): string {
+  const c = normalizeCurrency(code);
+  return CURRENCY_SYMBOLS[c] ?? c;
+}
+
+/** 1250 + "USD" -> "$1,250.00";  1250 + "" -> "Rs. 1,250.00";  -50 -> "($50.00)" */
+export function formatMoney(value: number, currency: unknown, decimals = 2): string {
+  const symbol = currencySymbol(currency);
+  const lead = /[A-Za-z.]$/.test(symbol) ? `${symbol} ` : symbol;
+  const abs = Math.abs(value).toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+  return value < 0 ? `(${lead}${abs})` : `${lead}${abs}`;
+}
+
+/** The currency a cell of this column is in, or undefined when the report has no currency information. */
+export function cellCurrency(row: Row, col: Pick<ReportColumn, 'key'>): string | undefined {
+  if (BASE_CURRENCY_KEYS.has(col.key)) return BASE_CURRENCY;
+  return Object.prototype.hasOwnProperty.call(row, 'currency') ? normalizeCurrency(row.currency) : undefined;
+}
+
 export function formatValue(
 value: Row[string] | undefined,
 format: ColumnFormat,
-decimals = 2)
+decimals = 2,
+currency?: string)
 : string {
   if (value === null || value === undefined || value === '') return '';
   switch (format) {
     case 'currency':
-      return formatNumber(Number(value), decimals);
+      return currency ? formatMoney(Number(value), currency, decimals) : formatNumber(Number(value), decimals);
     case 'number':
       return formatNumber(Number(value), decimals);
     case 'percent':
@@ -81,7 +134,7 @@ decimals = 2)
 }
 
 export function formatCell(row: Row, col: ReportColumn): string {
-  return formatValue(row[col.key], col.format, col.decimals);
+  return formatValue(row[col.key], col.format, col.decimals, col.format === 'currency' ? cellCurrency(row, col) : undefined);
 }
 
 export function todayIso(): string {
