@@ -32,6 +32,7 @@ const navItems: NavItem[] = [
   icon: <FileTextIcon className={iconClass} />,
   children: [
   { label: 'Sales Report - Mr. Johann', to: '/reports/fixed' },
+  { label: 'AR Reports', to: '/reports/ar' },
   { label: 'My Reports', to: '/reports/mine' },
   { label: 'Shared Reports', to: '/reports/shared' }]
 

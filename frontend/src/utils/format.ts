@@ -68,7 +68,7 @@ export function formatNumber(value: number, decimals = 2): string {
 export const BASE_CURRENCY = 'LKR';
 
 /** Columns that are always in the base currency, whatever the row's own currency is. */
-const BASE_CURRENCY_KEYS = new Set(['creditLimit']);
+const BASE_CURRENCY_KEYS = new Set(['creditLimit', 'amountBase']);
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   LKR: 'Rs.',

@@ -84,7 +84,7 @@ const saveSchema = z.object({
   type: z.enum(['Fixed Template', 'Custom Report']).default('Custom Report'),
   templateId: z.string().optional(),
   // 'erpTable' = a report built on one real ERP table (its name rides along in the saved definition).
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'erpTable']),
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'erpTable']),
   // Everything else (columns, filters, sort, formatting…) rides along as-is.
   rest: z.record(z.any()).default({})
 });
@@ -197,7 +197,7 @@ reportsRouter.post(
  * live preview) against the real database and returns rows.
  * ------------------------------------------------------------------ */
 const queryBodySchema = z.object({
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices']),
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions']),
   columns: z
     .array(z.object({ key: z.string(), aggregation: z.enum(['sum', 'avg', 'count', 'min', 'max', 'none']).optional() }))
     .default([]),
@@ -244,50 +244,72 @@ reportsRouter.post(
       if (err instanceof NoDataSourceError) return res.status(409).json({ error: err.message });
       throw err;
     }
+    // The newer columns (manual no., currency, company) only exist once backend/db/erp_views.polydime.sql has been
+    // re-run. Until then the report must still open, so a view that lacks one of them is queried without it
+    // (those cells are simply empty) instead of failing the whole report.
+    const OPTIONAL_COLUMNS = new Set(['manualNo', 'currency', 'company']);
+    const skipped = new Set<string>();
+    const wantedColumns = () => {
+      const ds = DATASETS[input.dataset];
+      const all = input.columns?.length ?
+        input.columns :
+        ds ? Object.keys(ds.columns).map((key) => ({ key, aggregation: 'none' as const })) : [];
+      return all.filter((c) => !skipped.has(c.key));
+    };
+
     let built;
-    try {
-      built = buildReportQuery({ ...input, dialect: conn.dialect });
-    } catch (err) {
-      if (err instanceof QueryValidationError) {
-        return res.status(400).json({ error: err.message });
-      }
-      throw err;
-    }
-
     let rowsResult, countResult;
-    try {
-      [rowsResult, countResult] = await Promise.all([
-        conn.query(built.sql, built.params),
-        conn.query(built.countSql, buildCountParams(built))
-      ]);
-    } catch (err: any) {
-      // Typically: a view/column in db/erp_views.*.sql doesn't exist yet or the login lacks SELECT.
-      console.error('Report query failed:', err.message, '\nSQL:', built.sql);
-
-      // "Invalid object name 'v_…'" = the report views were never created in this ERP database.
-      // Say exactly which ones are missing and what to run, instead of a raw SQL Server message.
-      if (conn.dialect === 'mssql' && /invalid object name/i.test(String(err.message))) {
-        const wanted = Object.values(DATASETS).map((d) => d.view.replace(/^dbo\./i, ''));
-        let missing = wanted;
-        try {
-          const found = await conn.query(
-            `SELECT name FROM sys.views WHERE name IN (${wanted.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')})`
-          );
-          const have = new Set(found.rows.map((r: any) => String(r.name).toLowerCase()));
-          missing = wanted.filter((v) => !have.has(v.toLowerCase()));
-        } catch {
-          /* keep the full list */
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        built = buildReportQuery({ ...input, columns: wantedColumns(), dialect: conn.dialect });
+      } catch (err) {
+        if (err instanceof QueryValidationError) {
+          return res.status(400).json({ error: err.message });
         }
-        if (missing.length) {
-          return res.status(502).json({
-            error:
-              `The report views are not installed in ${conn.label}: ${missing.join(', ')}. ` +
-              `Run backend/db/erp_views.polydime.sql in SSMS on that database, then press Refresh.`,
-            missingViews: missing
-          });
-        }
+        throw err;
       }
-      return res.status(502).json({ error: `The ERP database rejected the query: ${err.message}` });
+
+      try {
+        [rowsResult, countResult] = await Promise.all([
+          conn.query(built.sql, built.params),
+          conn.query(built.countSql, buildCountParams(built))
+        ]);
+        break;
+      } catch (err: any) {
+        const missingCol = /invalid column name '([^']+)'/i.exec(String(err.message))?.[1];
+        if (conn.dialect === 'mssql' && missingCol && OPTIONAL_COLUMNS.has(missingCol) && !skipped.has(missingCol) && attempt < 3) {
+          console.warn(`View ${DATASETS[input.dataset]?.view} has no "${missingCol}" column yet - run backend/db/erp_views.polydime.sql. Continuing without it.`);
+          skipped.add(missingCol);
+          continue;
+        }
+        // Typically: a view/column in db/erp_views.*.sql doesn't exist yet or the login lacks SELECT.
+        console.error('Report query failed:', err.message, '\nSQL:', built.sql);
+
+        // "Invalid object name 'v_…'" = the report views were never created in this ERP database.
+        // Say exactly which ones are missing and what to run, instead of a raw SQL Server message.
+        if (conn.dialect === 'mssql' && /invalid object name/i.test(String(err.message))) {
+          const wanted = Object.values(DATASETS).map((d) => d.view.replace(/^dbo\./i, ''));
+          let missing = wanted;
+          try {
+            const found = await conn.query(
+              `SELECT name FROM sys.views WHERE name IN (${wanted.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')})`
+            );
+            const have = new Set(found.rows.map((r: any) => String(r.name).toLowerCase()));
+            missing = wanted.filter((v) => !have.has(v.toLowerCase()));
+          } catch {
+            /* keep the full list */
+          }
+          if (missing.length) {
+            return res.status(502).json({
+              error:
+                `The report views are not installed in ${conn.label}: ${missing.join(', ')}. ` +
+                `Run backend/db/erp_views.polydime.sql in SSMS on that database, then press Refresh.`,
+              missingViews: missing
+            });
+          }
+        }
+        return res.status(502).json({ error: `The ERP database rejected the query: ${err.message}` });
+      }
     }
 
     if (input.reportId) {

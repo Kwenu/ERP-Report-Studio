@@ -317,14 +317,20 @@ export async function runQuery(definition: ReportDefinition, signal?: { cancelle
  * then computed in the browser by the existing report engine, exactly as before.
  */
 export async function fetchDatasetRows(
-  definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo'>
+  definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo' | 'filters'>
 ): Promise<QueryResponse & { truncated: boolean }> {
   const result = await http<QueryResponse>('/reports/query', {
     method: 'POST',
     body: JSON.stringify({
       dataset: definition.dataset,
       columns: [], // empty = every column of the dataset
-      filters: [],
+      // The AR customer-details report is always about ONE customer: ask the database for just that customer's
+      // documents (instead of every customer's, which could exceed the 20,000-row limit).
+      filters: definition.dataset === 'arTransactions' ?
+      (definition.filters ?? []).
+      filter((f) => f.key === 'customerId' && f.operator === 'equals' && f.value).
+      map((f) => ({ key: f.key, operator: f.operator, value: f.value, connector: 'AND' })) :
+      [],
       sort: [],
       dateFrom: definition.dateFrom || undefined,
       dateTo: definition.dateTo || undefined,

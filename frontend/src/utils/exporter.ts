@@ -1,6 +1,6 @@
 import type { ReportColumn, ReportDefinition, Row } from '../types/erp';
 import type { CurrencyTotals, GroupBlock } from './reportEngine';
-import { formatCell, formatDate, formatMoney, formatValue } from './format';
+import { formatCell, formatDate, formatMoney, formatValue, todayIso } from './format';
 
 interface ExportPayload {
   definition: ReportDefinition;
@@ -30,6 +30,7 @@ function safeName(name: string) {
 function headerLines(definition: ReportDefinition): string[][] {
   const lines: string[][] = [['Polydime'], [definition.name]];
   if (definition.subtitle) lines.push([definition.subtitle]);
+  if (definition.hidePeriod) lines.push([`As at ${formatDate(todayIso())}`]);else
   if (definition.dateFrom && definition.dateTo)
   lines.push([`${formatDate(definition.dateFrom)} - ${formatDate(definition.dateTo)}`]);
   if (definition.basis) lines.push([`Report Basis: ${definition.basis}`]);

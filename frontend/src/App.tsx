@@ -6,6 +6,7 @@ import { AppShell } from './components/layout/AppShell';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { FixedReports } from './pages/FixedReports';
+import { ArReports } from './pages/ArReports';
 import { ReportView } from './pages/ReportView';
 import { ReportBuilder } from './pages/ReportBuilder';
 import { BuilderCanvas } from './pages/BuilderCanvas';
@@ -40,6 +41,11 @@ function StudioRoutes({
         <Route
           path="/reports/fixed/:templateId"
           element={<ReportView mode="template" />} />
+        
+        <Route path="/reports/ar" element={<ArReports />} />
+        <Route
+          path="/reports/ar/:templateId"
+          element={<ReportView mode="template" section="ar" />} />
         
         <Route path="/reports/view/:reportId" element={<ReportView mode="saved" />} />
         <Route path="/reports/mine" element={<MyReports />} />

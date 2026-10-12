@@ -1,4 +1,5 @@
 import { Fragment, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -192,6 +193,16 @@ export function ReportTable({
                 <span className="min-w-0 truncate">{formatCell(row, col)}</span>
                 <InvoicePdfButton invoiceNo={String(row.num)} manualNo={row.manualNo ? String(row.manualNo) : undefined} />
               </span> :
+
+          col.key === 'balance' && definition.dataset === 'arSummary' && row.customerId ?
+          // AR report: clicking a customer's balance opens every document behind it
+          <Link
+            to={`/reports/ar/ar-customer-detail?customerId=${encodeURIComponent(String(row.customerId))}&customerName=${encodeURIComponent(String(row.name ?? ''))}`}
+            onClick={(e) => e.stopPropagation()}
+            title={`Show all invoices, payments, credit notes, debit notes and advances of ${String(row.name ?? row.customerId)}`}
+            className="font-medium text-accent-700 underline decoration-dotted underline-offset-2 hover:text-accent-800">
+              {formatCell(row, col)}
+            </Link> :
 
           formatCell(row, col)}
           </td>

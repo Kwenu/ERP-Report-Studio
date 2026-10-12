@@ -4,7 +4,7 @@ import { FieldsTab } from './FieldsTab';
 import { FilterBuilder } from './FilterBuilder';
 import { Button } from '../ui/Button';
 import { Field } from '../ui/Field';
-import { groupOptions } from '../../data/templates';
+import { groupOptionsFor } from '../../data/templates';
 import { cx, selectClass } from '../../utils/ui';
 
 export type ConfigTab =
@@ -184,7 +184,7 @@ export function ConfigPanel({
                 
                   No grouping (flat list)
                 </label>
-                {groupOptions.map((option) =>
+                {groupOptionsFor(definition.dataset).map((option) =>
               <label
                 key={option.key}
                 className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-xs text-ink-700 hover:bg-surface-muted">

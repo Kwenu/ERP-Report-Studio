@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { LockIcon } from 'lucide-react';
+import { ArrowLeftIcon, LockIcon } from 'lucide-react';
 import { ReportWorkspace } from '../components/report/ReportWorkspace';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Badge } from '../components/ui/Badge';
@@ -10,7 +10,7 @@ import { cloneDefinition, getTemplate } from '../data/templates';
 import { useApp } from '../contexts/AppContext';
 import type { ReportDefinition } from '../types/erp';
 
-export function ReportView({ mode }: {mode: 'template' | 'saved';}) {
+export function ReportView({ mode, section = 'fixed' }: {mode: 'template' | 'saved';section?: 'fixed' | 'ar';}) {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const { getReport, markViewed } = useApp();
@@ -33,6 +33,24 @@ export function ReportView({ mode }: {mode: 'template' | 'saved';}) {
     const next = cloneDefinition(source);
     const customer = searchParams.get('customer');
     const invoice = searchParams.get('invoice');
+    // AR report: a clicked balance opens the details of that one customer (by customer code)
+    const customerId = searchParams.get('customerId');
+    const customerName = searchParams.get('customerName');
+    if (customerId) {
+      next.filters = [
+      ...next.filters,
+      {
+        id: 'qp-customer-id',
+        key: 'customerId',
+        label: 'Customer Code',
+        dataType: 'text',
+        operator: 'equals',
+        value: customerId,
+        connector: 'AND'
+      }];
+
+      next.subtitle = customerName ? `${customerId} – ${customerName}` : customerId;
+    }
     if (customer) {
       next.filters = [
       ...next.filters,
@@ -89,10 +107,15 @@ export function ReportView({ mode }: {mode: 'template' | 'saved';}) {
       <PageHeader
         compact
         title={definition.name}
-        breadcrumb={['Reports', isTemplate ? 'Fixed Reports' : 'My Reports']}
-        subtitle={definition.description}
+        breadcrumb={['Reports', isTemplate ? section === 'ar' ? 'AR Reports' : 'Fixed Reports' : 'My Reports']}
+        subtitle={definition.id === 'ar-customer-detail' && definition.subtitle ? `Customer: ${definition.subtitle}` : definition.description}
         actions={
         <div className="flex items-center gap-2">
+            {definition.id === 'ar-customer-detail' &&
+            <Link to="/reports/ar/ar-report">
+                <Button size="xs" icon={<ArrowLeftIcon className="h-3 w-3" />}>Back to AR Report</Button>
+              </Link>
+            }
             <Badge tone={isTemplate ? 'navy' : 'blue'}>
               {isTemplate && <LockIcon className="mr-1 h-2.5 w-2.5" />}
               {isTemplate ? 'Protected template' : definition.visibility}

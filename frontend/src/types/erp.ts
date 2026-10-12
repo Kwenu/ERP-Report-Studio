@@ -109,7 +109,7 @@ export interface SortRule {
 }
 
 /** The three curated datasets, or 'erpTable' = one real table of the connected ERP database (see sourceTable). */
-export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'erpTable';
+export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions' | 'erpTable';
 
 export interface CalculatedField {
   key: string;
@@ -136,6 +136,8 @@ export interface ReportDefinition {
   sourceTable?: string;
   subtitle?: string;
   basis?: 'Accrual' | 'Cash';
+  /** A balance "as at today" (AR summary): no period selector, the heading says "As at <date>". */
+  hidePeriod?: boolean;
   dateFrom?: string;
   dateTo?: string;
   columns: ReportColumn[];

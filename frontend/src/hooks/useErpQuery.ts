@@ -44,6 +44,10 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
   const [nonce, setNonce] = useState(0);
 
   const isTable = definition.dataset === 'erpTable';
+  /** The customer an AR details report is limited to — changing it reloads the data. */
+  const customerKey = definition.dataset === 'arTransactions' ?
+  definition.filters.filter((f) => f.key === 'customerId').map((f) => `${f.operator}:${f.value}`).join('|') :
+  '';
   const tableColumns = isTable ? neededKeys(definition).join(SEP) : '';
 
   useEffect(() => {
@@ -85,7 +89,7 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [definition.dataset, definition.sourceTable, tableColumns, definition.dateFrom, definition.dateTo, nonce, dataSourceName, activeSource.id]);
+  }, [definition.dataset, definition.sourceTable, tableColumns, definition.dateFrom, definition.dateTo, customerKey, nonce, dataSourceName, activeSource.id]);
 
   const rerun = useCallback(() => setNonce((n) => n + 1), []);
 

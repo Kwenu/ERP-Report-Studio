@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import type { QueryResultMeta, ReportDefinition } from '../../types/erp';
 import { formatDateTime } from '../../utils/format';
 import { matchPreset, periodPresets, presetRange, type PeriodId } from '../../utils/period';
+import { groupOptionsFor } from '../../data/templates';
 import { compactInputClass, compactSelectClass } from '../../utils/ui';
 
 interface ReportControlsBarProps {
@@ -45,7 +46,7 @@ export function ReportControlsBar({
   return (
     <>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-white px-3 py-1">
-        {(definition.dateFrom !== undefined || definition.dataset !== 'erpTable') &&
+        {!definition.hidePeriod && (definition.dateFrom !== undefined || definition.dataset !== 'erpTable') &&
         <div className="flex items-center gap-1">
             <span className={label}>Period</span>
             <select
@@ -113,12 +114,19 @@ export function ReportControlsBar({
             className={`${compactSelectClass} w-[140px]`}>
             
             <option value="">No grouping</option>
-            <option value="name">Customer</option>
-            <option value="rep">Sales Representative</option>
-            <option value="item">Item</option>
-            <option value="date">Date</option>
-            <option value="terms">Terms</option>
-            <option value="category">Category</option>
+            {definition.dataset === 'arSummary' || definition.dataset === 'arTransactions' ?
+            groupOptionsFor(definition.dataset).map((o) =>
+            <option key={o.key} value={o.key}>{o.label}</option>
+            ) :
+            <>
+                <option value="name">Customer</option>
+                <option value="rep">Sales Representative</option>
+                <option value="item">Item</option>
+                <option value="date">Date</option>
+                <option value="terms">Terms</option>
+                <option value="category">Category</option>
+              </>
+            }
           </select>
         </div>
 

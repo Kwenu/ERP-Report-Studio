@@ -172,7 +172,7 @@ export const relationships: Relationship[] = [
 
 export const allFields: ErpField[] = erpTables.flatMap((t) => t.fields);
 
-export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices';
+export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions';
 
 export interface DatasetColumn {
   dataType: DataType;
@@ -275,6 +275,60 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       customerId: { dataType: 'text', label: 'Customer ID' },
       invoiceId: { dataType: 'integer', label: 'Invoice ID' },
       city: { dataType: 'text', label: 'City' }
+    }
+  },
+  arSummary: {
+    id: 'arSummary',
+    view: 'v_ar_summary',
+    columns: {
+      customerId: { dataType: 'text', label: 'Code' },
+      name: { dataType: 'text', label: 'Customer Name' },
+      customerGroup: { dataType: 'text', label: 'Customer Group' },
+      currency: { dataType: 'text', label: 'Currency' },
+      balance: { dataType: 'currency', label: 'Balance' },
+      documents: { dataType: 'integer', label: 'Documents' }
+    }
+  },
+  arTransactions: {
+    id: 'arTransactions',
+    view: 'v_ar_transactions',
+    columns: {
+      lineId: { dataType: 'text', label: 'Line ID' },
+      customerId: { dataType: 'text', label: 'Customer Code' },
+      type: { dataType: 'text', label: 'Type' },
+      date: { dataType: 'date', label: 'Date' },
+      reference: { dataType: 'text', label: 'Reference' },
+      manualNo: { dataType: 'text', label: 'Manual No' },
+      invoiceNo: { dataType: 'text', label: 'Invoice No' },
+      remarks: { dataType: 'text', label: 'Remarks' },
+      customerPo: { dataType: 'text', label: 'Customer PO No' },
+      name: { dataType: 'text', label: 'Customer Name' },
+      itemCode: { dataType: 'text', label: 'Item Code' },
+      itemName: { dataType: 'text', label: 'Item Name' },
+      description: { dataType: 'text', label: 'Description' },
+      qty: { dataType: 'decimal', label: 'Quantity' },
+      qtyKg: { dataType: 'decimal', label: 'Kg' },
+      salesPrice: { dataType: 'currency', label: 'Sales Price' },
+      amount: { dataType: 'currency', label: 'Amount' },
+      amountBase: { dataType: 'currency', label: 'Amount (Rs.)' },
+      balance: { dataType: 'currency', label: 'Balance' },
+      jobNo: { dataType: 'text', label: 'Job No' },
+      jobManualNo: { dataType: 'text', label: 'Job Manual No' },
+      taxAmount: { dataType: 'currency', label: 'Tax Amount' },
+      status: { dataType: 'text', label: 'Status' },
+      itemType: { dataType: 'text', label: 'Item Type' },
+      subType: { dataType: 'text', label: 'Sub Type' },
+      industry: { dataType: 'text', label: 'Industry' },
+      category: { dataType: 'text', label: 'Category' },
+      subCategory: { dataType: 'text', label: 'Sub Category' },
+      brand: { dataType: 'text', label: 'Brand' },
+      lifeCycle: { dataType: 'text', label: 'Life Cycle' },
+      company: { dataType: 'text', label: 'Company' },
+      location: { dataType: 'text', label: 'Location' },
+      terms: { dataType: 'text', label: 'Term' },
+      rep: { dataType: 'text', label: 'Rep' },
+      repName: { dataType: 'text', label: 'Rep Name' },
+      currency: { dataType: 'text', label: 'Currency' }
     }
   }
 };

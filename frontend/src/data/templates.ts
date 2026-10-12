@@ -256,8 +256,98 @@ salesByRepDetail,
 openInvoicesReport];
 
 
+
+/* ------------------------------------------------------------------ *
+ * AR (accounts receivable) reports — the "AR Reports" menu entry.    *
+ *   1. AR Report                 one row per customer: Code, Name,    *
+ *                                Balance (fDdbNote.TotBal summed).    *
+ *   2. AR Report - Customer      opened by clicking a Balance: every   *
+ *      Details                   INV / DBN / CRD / REC / ALO document  *
+ *                                of that customer, all sheet columns. *
+ * ------------------------------------------------------------------ */
+export const arSummaryReport: ReportDefinition = {
+  ...baseDefinition,
+  id: 'ar-report',
+  name: 'AR Report',
+  description:
+  'Sales by summary: every customer with the outstanding balance on their account. Click a balance to see all invoices, payments, credit notes, debit notes and advances behind it.',
+  category: 'Receivables',
+  subtitle: 'Sales By Summary',
+  dataset: 'arSummary',
+  hidePeriod: true,
+  groupBy: null,
+  showSubtotals: true,
+  showGrandTotal: true,
+  sort: [{ key: 'name', label: 'Customer Name', dir: 'asc' }],
+  columns: [
+  makeColumn('ARBalances.CustomerCode', 'customerId', 'Code', 'text', { width: 140, locked: true }),
+  makeColumn('ARBalances.CustomerName', 'name', 'Customer Name', 'text', { width: 380, locked: true }),
+  { ...makeColumn('ARBalances.CustomerGroup', 'customerGroup', 'Customer Group', 'text', { width: 160 }), visible: false },
+  makeColumn('ARBalances.Balance', 'balance', 'Balance', 'currency', {
+    width: 180,
+    aggregation: 'sum',
+    locked: true
+  })]
+
+};
+
+export const arCustomerDetailReport: ReportDefinition = {
+  ...baseDefinition,
+  id: 'ar-customer-detail',
+  name: 'AR Report - Customer Details',
+  description:
+  'Every invoice, debit note, credit note, receipt and advance allocation for one customer, opened from the AR Report balance.',
+  category: 'Receivables',
+  dataset: 'arTransactions',
+  dateFrom: '',
+  dateTo: '',
+  groupBy: null,
+  showSubtotals: true,
+  showGrandTotal: false,
+  sort: [{ key: 'date', label: 'Date', dir: 'asc' }],
+  columns: [
+  makeColumn('ARTransactions.Type', 'type', 'Type', 'text', { width: 64, locked: true, align: 'center' }),
+  makeColumn('ARTransactions.Date', 'date', 'Date', 'date', { width: 96, locked: true }),
+  makeColumn('ARTransactions.Reference', 'reference', 'Reference', 'text', { width: 150, locked: true }),
+  makeColumn('ARTransactions.ManualNo', 'manualNo', 'Manual No', 'text', { width: 110, locked: true }),
+  makeColumn('ARTransactions.InvoiceNo', 'invoiceNo', 'Invoice No', 'text', { width: 150, locked: true }),
+  makeColumn('ARTransactions.Remarks', 'remarks', 'Remarks', 'text', { width: 200, locked: true }),
+  makeColumn('ARTransactions.CustomerPo', 'customerPo', 'Customer PO No', 'text', { width: 130, locked: true }),
+  makeColumn('ARTransactions.CustomerName', 'name', 'Customer Name', 'text', { width: 220, locked: true }),
+  makeColumn('ARTransactions.ItemCode', 'itemCode', 'Item Code', 'text', { width: 110, locked: true }),
+  makeColumn('ARTransactions.ItemName', 'itemName', 'Item Name', 'text', { width: 200, locked: true }),
+  makeColumn('ARTransactions.Description', 'description', 'Description', 'text', { width: 220, locked: true }),
+  makeColumn('ARTransactions.Quantity', 'qty', 'Quantity', 'decimal', { width: 90, locked: true, aggregation: 'sum' }),
+  makeColumn('ARTransactions.Kg', 'qtyKg', 'Kg', 'decimal', { width: 90, locked: true, aggregation: 'sum' }),
+  makeColumn('ARTransactions.SalesPrice', 'salesPrice', 'Sales Price', 'currency', { width: 110, locked: true }),
+  makeColumn('ARTransactions.Amount', 'amount', 'Amount', 'currency', { width: 130, locked: true, aggregation: 'sum' }),
+  makeColumn('ARTransactions.AmountBase', 'amountBase', 'Amount (Rs.)', 'currency', { width: 130, locked: true, aggregation: 'sum' }),
+  makeColumn('ARTransactions.Balance', 'balance', 'Balance', 'currency', { width: 130, locked: true }),
+  makeColumn('ARTransactions.JobNo', 'jobNo', 'Job No', 'text', { width: 120, locked: true }),
+  makeColumn('ARTransactions.JobManualNo', 'jobManualNo', 'Job Manual No', 'text', { width: 120, locked: true }),
+  makeColumn('ARTransactions.TaxAmount', 'taxAmount', 'Tax Amount', 'currency', { width: 110, locked: true }),
+  makeColumn('ARTransactions.Status', 'status', 'Status', 'text', { width: 80, locked: true }),
+  makeColumn('ARTransactions.ItemType', 'itemType', 'Item Type', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.SubType', 'subType', 'Sub Type', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.Industry', 'industry', 'Industry', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.Category', 'category', 'Category', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.SubCategory', 'subCategory', 'Sub Category', 'text', { width: 110, locked: true }),
+  makeColumn('ARTransactions.Brand', 'brand', 'Brand', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.LifeCycle', 'lifeCycle', 'Life Cycle', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.Company', 'company', 'Company', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.Location', 'location', 'Location', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.Term', 'terms', 'Term', 'text', { width: 100, locked: true }),
+  makeColumn('ARTransactions.Rep', 'rep', 'Rep', 'text', { width: 90, locked: true }),
+  makeColumn('ARTransactions.RepName', 'repName', 'Rep Name', 'text', { width: 160, locked: true }),
+  makeColumn('ARTransactions.Currency', 'currency', 'Currency', 'text', { width: 80, locked: true })]
+
+};
+
+/** Templates of the "AR Reports" menu entry (kept apart from the Sales report templates on purpose). */
+export const arTemplates: ReportDefinition[] = [arSummaryReport, arCustomerDetailReport];
+
 export function getTemplate(id: string): ReportDefinition | undefined {
-  return fixedTemplates.find((t) => t.id === id);
+  return fixedTemplates.find((t) => t.id === id) ?? arTemplates.find((t) => t.id === id);
 }
 
 export function cloneDefinition(def: ReportDefinition): ReportDefinition {
@@ -303,3 +393,23 @@ export const groupOptions = [
 { key: 'date', label: 'Date' },
 { key: 'category', label: 'Category' },
 { key: 'terms', label: 'Terms' }];
+
+/** The grouping choices that make sense for a dataset (the AR datasets have their own columns). */
+export function groupOptionsFor(dataset: ReportDefinition['dataset']): {key: string;label: string;}[] {
+  if (dataset === 'arSummary') {
+    return [
+    { key: 'customerGroup', label: 'Customer Group' },
+    { key: 'currency', label: 'Currency' }];
+
+  }
+  if (dataset === 'arTransactions') {
+    return [
+    { key: 'type', label: 'Document Type' },
+    { key: 'currency', label: 'Currency' },
+    { key: 'rep', label: 'Sales Representative' },
+    { key: 'company', label: 'Company' },
+    { key: 'category', label: 'Category' }];
+
+  }
+  return groupOptions;
+}
