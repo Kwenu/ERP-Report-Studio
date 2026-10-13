@@ -1,20 +1,3 @@
--- =====================================================================
--- ERP Report Studio — report views for SQL Server (run on the ERP database)
---
--- The report engine only ever SELECTs from these three views, and the
--- frontend expects exactly these column aliases. Each view flattens your
--- ERP tables into that shape.
---
--- !! The table / column names below follow the reference schema used by
--- !! the frontend (Customers, Invoices, InvoiceLines, Items, Payments,
--- !! SalesRepresentatives, Departments). Run `npm run erp:inspect`, compare
--- !! with erp-schema.txt, and edit the FROM / JOIN / column names to match
--- !! your real tables before running this script.
---
--- Run this with an account that may CREATE VIEW, then grant the reporting
--- login read-only access (see bottom of file).
--- =====================================================================
-
 CREATE OR ALTER VIEW dbo.v_sales_lines AS
 SELECT
   il.InvoiceLineID            AS lineId,

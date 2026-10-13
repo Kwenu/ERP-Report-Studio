@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
   children: [
   { label: 'Sales Report - Mr. Johann', to: '/reports/fixed' },
   { label: 'AR Reports', to: '/reports/ar' },
-  { label: 'My Reports', to: '/reports/mine' },
+  { label: 'Manufacturing Quick Report', to: '/reports/manufacturing' },
   { label: 'Shared Reports', to: '/reports/shared' }]
 
 },

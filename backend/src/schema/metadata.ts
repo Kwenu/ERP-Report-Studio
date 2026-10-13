@@ -172,7 +172,7 @@ export const relationships: Relationship[] = [
 
 export const allFields: ErpField[] = erpTables.flatMap((t) => t.fields);
 
-export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions';
+export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions' | 'mfgQuick';
 
 export interface DatasetColumn {
   dataType: DataType;
@@ -329,6 +329,31 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       rep: { dataType: 'text', label: 'Rep' },
       repName: { dataType: 'text', label: 'Rep Name' },
       currency: { dataType: 'text', label: 'Currency' }
+    }
+  },
+  // Manufacturing Quick Report: one row per manufacturing / stock transaction (see db/erp_views.manufacturing.sql)
+  mfgQuick: {
+    id: 'mfgQuick',
+    view: 'v_manufacturing_quick',
+    columns: {
+      lineId: { dataType: 'text', label: 'Line ID' },
+      type: { dataType: 'text', label: 'Type' },
+      txnType: { dataType: 'text', label: 'Txn Type Code' },
+      source: { dataType: 'text', label: 'Source Table' },
+      reference: { dataType: 'text', label: 'Reference No' },
+      date: { dataType: 'date', label: 'Date' },
+      jobNo: { dataType: 'text', label: 'Job No' },
+      manualNo: { dataType: 'text', label: 'Manual No' },
+      itemCode: { dataType: 'text', label: 'Item Code' },
+      itemName: { dataType: 'text', label: 'Name' },
+      machine: { dataType: 'text', label: 'Machine' },
+      qtyKg: { dataType: 'decimal', label: 'Quantity (Kg)' },
+      pieces: { dataType: 'decimal', label: 'Pieces' },
+      site: { dataType: 'text', label: 'Site' },
+      stage: { dataType: 'text', label: 'Stage' },
+      location: { dataType: 'text', label: 'Location' },
+      company: { dataType: 'text', label: 'Company' },
+      costCentre: { dataType: 'text', label: 'Cost Centre' }
     }
   }
 };

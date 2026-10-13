@@ -346,8 +346,52 @@ export const arCustomerDetailReport: ReportDefinition = {
 /** Templates of the "AR Reports" menu entry (kept apart from the Sales report templates on purpose). */
 export const arTemplates: ReportDefinition[] = [arSummaryReport, arCustomerDetailReport];
 
+/* ------------------------------------------------------------------ *
+ * Manufacturing Quick Report — the "Manufacturing Quick Report" menu  *
+ * entry. One row per manufacturing / stock transaction (Build         *
+ * Assembly, Job Transfer, Issue / Acceptance Notes, Wastage ...),     *
+ * read from the transaction header tables through the                 *
+ * v_manufacturing_quick view. The Reference No opens the transaction  *
+ * as a PDF.                                                           *
+ * ------------------------------------------------------------------ */
+export const manufacturingQuickReport: ReportDefinition = {
+  ...baseDefinition,
+  id: 'manufacturing-quick-report',
+  name: 'Manufacturing Quick Report',
+  description:
+  'Every manufacturing and stock transaction of the period (build assemblies, job and site transfers, issue and acceptance notes, wastage ...) with its job, item, machine, quantity, site, stage, location, company and cost centre. Click the PDF icon next to a reference number to view that transaction.',
+  category: 'Manufacturing',
+  dataset: 'mfgQuick',
+  dateFrom: defaultPeriod.from,
+  dateTo: defaultPeriod.to,
+  groupBy: null,
+  showSubtotals: true,
+  showGrandTotal: true,
+  sort: [{ key: 'date', label: 'Date', dir: 'asc' }],
+  columns: [
+  makeColumn('MfgQuick.Type', 'type', 'Type', 'text', { width: 230, locked: true }),
+  makeColumn('MfgQuick.ReferenceNo', 'reference', 'Reference No', 'text', { width: 160, locked: true }),
+  makeColumn('MfgQuick.Date', 'date', 'Date', 'date', { width: 96, locked: true }),
+  makeColumn('MfgQuick.JobNo', 'jobNo', 'Jobno', 'text', { width: 120, locked: true }),
+  makeColumn('MfgQuick.ManualNo', 'manualNo', 'Manual No', 'text', { width: 110, locked: true }),
+  makeColumn('MfgQuick.ItemCode', 'itemCode', 'Item code', 'text', { width: 110, locked: true }),
+  makeColumn('MfgQuick.Name', 'itemName', 'Name', 'text', { width: 230, locked: true }),
+  makeColumn('MfgQuick.Machine', 'machine', 'Machine', 'text', { width: 100, locked: true }),
+  makeColumn('MfgQuick.QuantityKg', 'qtyKg', 'Quantity (Kg)', 'decimal', { width: 120, locked: true, aggregation: 'sum' }),
+  makeColumn('MfgQuick.Pieces', 'pieces', 'Pieces', 'decimal', { width: 100, locked: true, aggregation: 'sum', decimals: 0 }),
+  makeColumn('MfgQuick.Site', 'site', 'Site', 'text', { width: 90, locked: true }),
+  makeColumn('MfgQuick.Stage', 'stage', 'Stage', 'text', { width: 90, locked: true }),
+  makeColumn('MfgQuick.Location', 'location', 'Location', 'text', { width: 100, locked: true }),
+  makeColumn('MfgQuick.Company', 'company', 'Company', 'text', { width: 100, locked: true }),
+  makeColumn('MfgQuick.CostCentre', 'costCentre', 'Cost Centre', 'text', { width: 110, locked: true })]
+
+};
+
+/** Templates of the "Manufacturing Quick Report" menu entry. */
+export const mfgTemplates: ReportDefinition[] = [manufacturingQuickReport];
+
 export function getTemplate(id: string): ReportDefinition | undefined {
-  return fixedTemplates.find((t) => t.id === id) ?? arTemplates.find((t) => t.id === id);
+  return fixedTemplates.find((t) => t.id === id) ?? arTemplates.find((t) => t.id === id) ?? mfgTemplates.find((t) => t.id === id);
 }
 
 export function cloneDefinition(def: ReportDefinition): ReportDefinition {
@@ -400,6 +444,19 @@ export function groupOptionsFor(dataset: ReportDefinition['dataset']): {key: str
     return [
     { key: 'customerGroup', label: 'Customer Group' },
     { key: 'currency', label: 'Currency' }];
+
+  }
+  if (dataset === 'mfgQuick') {
+    return [
+    { key: 'type', label: 'Transaction Type' },
+    { key: 'jobNo', label: 'Job No' },
+    { key: 'itemName', label: 'Item' },
+    { key: 'machine', label: 'Machine' },
+    { key: 'site', label: 'Site' },
+    { key: 'stage', label: 'Stage' },
+    { key: 'location', label: 'Location' },
+    { key: 'company', label: 'Company' },
+    { key: 'costCentre', label: 'Cost Centre' }];
 
   }
   if (dataset === 'arTransactions') {

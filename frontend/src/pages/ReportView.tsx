@@ -10,11 +10,11 @@ import { cloneDefinition, getTemplate } from '../data/templates';
 import { useApp } from '../contexts/AppContext';
 import type { ReportDefinition } from '../types/erp';
 
-export function ReportView({ mode, section = 'fixed' }: {mode: 'template' | 'saved';section?: 'fixed' | 'ar';}) {
+export function ReportView({ mode, section = 'fixed', templateId }: {mode: 'template' | 'saved';section?: 'fixed' | 'ar' | 'mfg';templateId?: string;}) {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const { getReport, markViewed } = useApp();
-  const id = mode === 'template' ? params.templateId : params.reportId;
+  const id = mode === 'template' ? templateId ?? params.templateId : params.reportId;
 
   const source = useMemo(() => {
     if (!id) return undefined;
@@ -107,7 +107,7 @@ export function ReportView({ mode, section = 'fixed' }: {mode: 'template' | 'sav
       <PageHeader
         compact
         title={definition.name}
-        breadcrumb={['Reports', isTemplate ? section === 'ar' ? 'AR Reports' : 'Fixed Reports' : 'My Reports']}
+        breadcrumb={['Reports', isTemplate ? section === 'ar' ? 'AR Reports' : section === 'mfg' ? 'Manufacturing Quick Report' : 'Fixed Reports' : 'Saved Reports']}
         subtitle={definition.id === 'ar-customer-detail' && definition.subtitle ? `Customer: ${definition.subtitle}` : definition.description}
         actions={
         <div className="flex items-center gap-2">

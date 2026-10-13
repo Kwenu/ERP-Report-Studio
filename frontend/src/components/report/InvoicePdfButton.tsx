@@ -3,14 +3,21 @@ import { createPortal } from 'react-dom';
 import { DownloadIcon, ExternalLinkIcon, FileTextIcon, Loader2Icon, TriangleAlertIcon } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { fetchInvoicePdf } from '../../services/invoiceApi';
+import { fetchInvoicePdf, fetchMfgPdf } from '../../services/invoiceApi';
 
 /**
  * A small PDF icon shown next to an invoice number. Clicking it opens the invoice as a PDF in a
  * viewer window (download / open in a new tab included). The PDF is generated on demand from the
  * ERP data — nothing is stored.
  */
-export function InvoicePdfButton({ invoiceNo, manualNo }: {invoiceNo: string;manualNo?: string;}) {
+const DOC_NAMES: Record<string, string> = { REC: 'Receipt', CRD: 'Credit Note', DBN: 'Debit Note', ALO: 'Advance Allocation' };
+
+/**
+ * `docType` (REC / CRD / DBN / ALO) opens a receipt, credit note, debit note or allocation instead of an invoice.
+ * `mfgSource` (the transaction's header table) opens a manufacturing / stock transaction; `mfgType` is its name.
+ */
+export function InvoicePdfButton({ invoiceNo, manualNo, docType, mfgSource, mfgType }: {invoiceNo: string;manualNo?: string;docType?: string;mfgSource?: string;mfgType?: string;}) {
+  const docName = mfgSource ? mfgType || 'Manufacturing Transaction' : docType ? DOC_NAMES[docType] ?? 'Document' : 'Invoice';
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [url, setUrl] = useState<string | null>(null);
@@ -26,7 +33,7 @@ export function InvoicePdfButton({ invoiceNo, manualNo }: {invoiceNo: string;man
     setState('loading');
     setError('');
     try {
-      const blob = await fetchInvoicePdf(invoiceNo);
+      const blob = mfgSource ? await fetchMfgPdf(mfgSource, invoiceNo, mfgType) : await fetchInvoicePdf(invoiceNo, docType);
       if (id !== request.current) return;
       setUrl((old) => {
         revoke(old);
@@ -49,14 +56,14 @@ export function InvoicePdfButton({ invoiceNo, manualNo }: {invoiceNo: string;man
     });
   };
 
-  const fileName = `Invoice-${invoiceNo.replace(/[^A-Za-z0-9._-]+/g, '-')}.pdf`;
+  const fileName = `${docName.replace(/[^A-Za-z0-9._-]+/g, '')}-${invoiceNo.replace(/[^A-Za-z0-9._-]+/g, '-')}.pdf`;
 
   return (
     <>
       <button
         type="button"
-        title={`View invoice ${invoiceNo}${manualNo ? ` (Manual No. ${manualNo})` : ''} as PDF`}
-        aria-label={`View invoice ${invoiceNo} as PDF`}
+        title={`View ${docName.toLowerCase()} ${invoiceNo}${manualNo ? ` (Manual No. ${manualNo})` : ''} as PDF`}
+        aria-label={`View ${docName.toLowerCase()} ${invoiceNo} as PDF`}
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);
@@ -76,7 +83,7 @@ export function InvoicePdfButton({ invoiceNo, manualNo }: {invoiceNo: string;man
             open
             onClose={close}
             width="max-w-5xl"
-            title={manualNo ? `Invoice ${invoiceNo} · Manual No. ${manualNo}` : `Invoice ${invoiceNo}`}
+            title={manualNo ? `${docName} ${invoiceNo} · Manual No. ${manualNo}` : `${docName} ${invoiceNo}`}
             description="Generated from the ERP database when you opened it — no PDF file is stored."
             footer={
             <>
@@ -108,7 +115,7 @@ export function InvoicePdfButton({ invoiceNo, manualNo }: {invoiceNo: string;man
               {state === 'loading' &&
             <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-[13px] text-ink-500">
                   <Loader2Icon className="h-6 w-6 animate-spin text-accent-600" />
-                  Preparing invoice {invoiceNo}…
+                  Preparing {docName.toLowerCase()} {invoiceNo}…
                 </div>
             }
               {state === 'error' &&
@@ -119,7 +126,7 @@ export function InvoicePdfButton({ invoiceNo, manualNo }: {invoiceNo: string;man
                 </div>
             }
               {state === 'ready' && url &&
-            <iframe title={`Invoice ${invoiceNo}`} src={url} className="h-[70vh] w-full rounded border border-line bg-surface-muted" />
+            <iframe title={`${docName} ${invoiceNo}`} src={url} className="h-[70vh] w-full rounded border border-line bg-surface-muted" />
             }
             </Modal>
           </div>,

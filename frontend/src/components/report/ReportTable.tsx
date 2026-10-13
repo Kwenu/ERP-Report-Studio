@@ -194,6 +194,27 @@ export function ReportTable({
                 <InvoicePdfButton invoiceNo={String(row.num)} manualNo={row.manualNo ? String(row.manualNo) : undefined} />
               </span> :
 
+          col.key === 'reference' && definition.dataset === 'arTransactions' && row.reference ?
+          // AR customer detail: a PDF of the invoice / receipt / credit note / debit note / allocation behind the row
+          <span className="flex items-center gap-1.5">
+                <span className="min-w-0 truncate">{formatCell(row, col)}</span>
+                <InvoicePdfButton
+              invoiceNo={String(row.reference)}
+              manualNo={row.manualNo ? String(row.manualNo) : undefined}
+              docType={row.type === 'INV' ? undefined : String(row.type)} />
+              </span> :
+
+          col.key === 'reference' && definition.dataset === 'mfgQuick' && row.reference ?
+          // Manufacturing Quick Report: the transaction behind the row as a PDF
+          <span className="flex items-center gap-1.5">
+                <span className="min-w-0 truncate">{formatCell(row, col)}</span>
+                <InvoicePdfButton
+              invoiceNo={String(row.reference)}
+              manualNo={row.manualNo ? String(row.manualNo) : undefined}
+              mfgSource={String(row.source ?? '')}
+              mfgType={row.type ? String(row.type) : undefined} />
+              </span> :
+
           col.key === 'balance' && definition.dataset === 'arSummary' && row.customerId ?
           // AR report: clicking a customer's balance opens every document behind it
           <Link

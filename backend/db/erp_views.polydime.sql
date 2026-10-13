@@ -1,7 +1,6 @@
 USE [POLYDIME_ERP];
 GO
 
--- The helper view used by the previous version is no longer needed (company is read straight from fInvhed.ComCode).
 IF OBJECT_ID('dbo.v_invoice_company', 'V') IS NOT NULL DROP VIEW dbo.v_invoice_company;
 GO
 
@@ -24,7 +23,7 @@ SELECT
   it.ICatCode                                  AS category,
   CASE WHEN h.TotalAmt > 0 AND ISNULL(rc.received, 0) >= h.TotalAmt - 0.005 THEN 'Yes' ELSE 'No' END AS paid,
   d.Qty                                        AS qty,
-  d.SellPrice                                  AS salesPrice,   -- invoice currency (see "currency"), not the base-currency B* columns
+  d.SellPrice                                  AS salesPrice,   
   d.Amt                                        AS amount,
   h.RepCode                                    AS rep,
   sr.RepName                                   AS repName,
@@ -118,15 +117,6 @@ LEFT JOIN (SELECT RefNo1, SUM(Amt) AS received FROM dbo.fdrecdet GROUP BY RefNo1
 WHERE h.TotalAmt - ISNULL(rc.received, 0) > 0.005;
 GO
 
--- =====================================================================================================
--- AR REPORT
---   v_ar_summary       one row per customer (and currency): Code, Customer Name, Balance
---                      Balance = SUM of fDdbNote.TotBal for the customer (fDebtor has no TotBal column).
---                      Customers whose balance is zero are left out.
---   v_ar_transactions  every document of a customer: INV, DBN, CRD, REC, ALO.
---                      ADV (fAdvHed) and REF (fAdvRef) are added below once their real table names are known.
--- All text columns are RTRIMmed (the ERP stores them as fixed-width CHAR).
--- =====================================================================================================
 IF OBJECT_ID('dbo.v_ar_summary', 'V') IS NOT NULL DROP VIEW dbo.v_ar_summary;
 GO
 CREATE VIEW dbo.v_ar_summary AS
@@ -146,7 +136,6 @@ GO
 IF OBJECT_ID('dbo.v_ar_transactions', 'V') IS NOT NULL DROP VIEW dbo.v_ar_transactions;
 GO
 CREATE VIEW dbo.v_ar_transactions AS
-  -- INV - invoice lines (fInvhed + fInvdet; item columns from fItems, job columns from fmJobhed)
   SELECT
     CAST('INV:' + RTRIM(h.RefNo) + ':' + CAST(d.RecordId AS varchar(20)) AS nvarchar(200)) AS [lineId],
     CAST(RTRIM(h.DebCode) AS nvarchar(200))                                AS [customerId],
@@ -193,7 +182,6 @@ CREATE VIEW dbo.v_ar_transactions AS
 
   UNION ALL
 
-  -- DBN - debit notes (fDdbNote, TxnType 20)
   SELECT
     CAST('DBN:' + RTRIM(n.RefNo) + ':' + CAST(n.RecordId AS varchar(20)) AS nvarchar(200)) AS [lineId],
     CAST(RTRIM(n.DebCode) AS nvarchar(200))                                AS [customerId],
@@ -238,7 +226,6 @@ CREATE VIEW dbo.v_ar_transactions AS
 
   UNION ALL
 
-  -- CRD - credit notes (fDcnHed + fDcnDet: one row per invoice the note was applied to)
   SELECT
     CAST('CRD:' + RTRIM(h.RefNo) + ':' + CAST(COALESCE(d.RecordId, h.RecordId) AS varchar(20)) AS nvarchar(200)) AS [lineId],
     CAST(RTRIM(h.DebCode) AS nvarchar(200))                                AS [customerId],
@@ -283,7 +270,6 @@ CREATE VIEW dbo.v_ar_transactions AS
 
   UNION ALL
 
-  -- REC - receipts / payments (fDRecHed + fdrecdet: one row per invoice the receipt was allocated to)
   SELECT
     CAST('REC:' + RTRIM(h.RefNo) + ':' + CAST(COALESCE(d.RecordId, h.RecordId) AS varchar(20)) AS nvarchar(200)) AS [lineId],
     CAST(RTRIM(h.DebCode) AS nvarchar(200))                                AS [customerId],
@@ -328,7 +314,6 @@ CREATE VIEW dbo.v_ar_transactions AS
 
   UNION ALL
 
-  -- ALO - advance allocations (fDAdAHed header; fDAdvDet is not in the schema results, so header level only)
   SELECT
     CAST('ALO:' + RTRIM(h.RefNo) + ':' + CAST(h.RecordId AS varchar(20)) AS nvarchar(200)) AS [lineId],
     CAST(RTRIM(h.DebCode) AS nvarchar(200))                                AS [customerId],

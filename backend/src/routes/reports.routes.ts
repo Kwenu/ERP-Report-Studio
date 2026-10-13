@@ -84,7 +84,7 @@ const saveSchema = z.object({
   type: z.enum(['Fixed Template', 'Custom Report']).default('Custom Report'),
   templateId: z.string().optional(),
   // 'erpTable' = a report built on one real ERP table (its name rides along in the saved definition).
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'erpTable']),
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick', 'erpTable']),
   // Everything else (columns, filters, sort, formatting…) rides along as-is.
   rest: z.record(z.any()).default({})
 });
@@ -197,7 +197,7 @@ reportsRouter.post(
  * live preview) against the real database and returns rows.
  * ------------------------------------------------------------------ */
 const queryBodySchema = z.object({
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions']),
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick']),
   columns: z
     .array(z.object({ key: z.string(), aggregation: z.enum(['sum', 'avg', 'count', 'min', 'max', 'none']).optional() }))
     .default([]),
@@ -300,10 +300,14 @@ reportsRouter.post(
             /* keep the full list */
           }
           if (missing.length) {
+            const files = [
+              missing.some((v) => v !== 'v_manufacturing_quick') ? 'backend/db/erp_views.polydime.sql' : '',
+              missing.includes('v_manufacturing_quick') ? 'backend/db/erp_views.manufacturing.sql' : ''
+            ].filter(Boolean).join(' and ');
             return res.status(502).json({
               error:
                 `The report views are not installed in ${conn.label}: ${missing.join(', ')}. ` +
-                `Run backend/db/erp_views.polydime.sql in SSMS on that database, then press Refresh.`,
+                `Run ${files} in SSMS on that database, then press Refresh.`,
               missingViews: missing
             });
           }

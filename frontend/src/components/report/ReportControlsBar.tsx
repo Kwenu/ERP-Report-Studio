@@ -114,7 +114,7 @@ export function ReportControlsBar({
             className={`${compactSelectClass} w-[140px]`}>
             
             <option value="">No grouping</option>
-            {definition.dataset === 'arSummary' || definition.dataset === 'arTransactions' ?
+            {definition.dataset === 'arSummary' || definition.dataset === 'arTransactions' || definition.dataset === 'mfgQuick' ?
             groupOptionsFor(definition.dataset).map((o) =>
             <option key={o.key} value={o.key}>{o.label}</option>
             ) :
