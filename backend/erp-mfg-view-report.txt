@@ -1,0 +1,458 @@
+Manufacturing Quick Report view: 42 transaction tables - 39 read their detail lines, 3 header only; 9 have a customer.
+15 transaction names that share a table still have no Txn Type code, so their documents show the table's default type name (see erp-mfg-txn-codes.txt).
+
+fCsMatHed  ->  fCsMatDet   [header + detail lines]
+      Item code      fCsMatHed.ItemCode (then fCsMatDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fCsMatDet.Qty (document total when it has no lines)
+      Customer       fCsMatHed.DebCode -> fDebtor.DebName
+      Job No         fCsMatHed.RefNo1
+      Site           fCsMatHed.SiteCode
+      Location       fCsMatHed.LocCode
+      Company        fCsMatHed.comcode
+      Cost Centre    fCsMatHed.CostCode
+fSoBldAsHed  ->  fSoBldAsDet   [header + detail lines]
+      Item code      fSoBldAsHed.ItemCode (then fSoBldAsDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fSoBldAsHed.QtyW (first line only)
+      Pieces         fSoBldAsDet.Qty (document total when it has no lines)
+      Job No         fSoBldAsHed.RefNo1 (then fSoBldAsDet.RefNo1)
+      Machine        fSoBldAsHed.machcode
+      Site           fSoBldAsHed.SiteCode (then fSoBldAsDet.SiteCode)
+      Stage          fSoBldAsHed.StagCode
+      Location       fSoBldAsHed.LocCode (then fSoBldAsDet.LocCode)
+      Company        fSoBldAsHed.ComCode
+      Cost Centre    fSoBldAsHed.CostCode
+      ! no customer column on fSoBldAsHed / fSoBldAsDet
+fmSFgTranHed  ->  fmSFgTranDet   [header + detail lines]
+      Item code      fmSFgTranHed.ItemCode (then fmSFgTranDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmSFgTranDet.Qty (document total when it has no lines)
+      Pieces         fmSFgTranHed.QtyPc (first line only)
+      Customer       fmSFgTranHed.DebCode -> fDebtor.DebName
+      Job No         fmSFgTranHed.RefNo1
+      Site           fmSFgTranHed.SiteCode
+      Stage          fmSFgTranHed.StagCode
+      Location       fmSFgTranHed.LocCode
+      Cost Centre    fmSFgTranHed.CostCode
+fAdjhed  ->  fAdjDet   [header + detail lines]
+      Item code      fAdjDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fAdjDet.Qty
+      Pieces         fAdjDet.QtyPc
+      Job No         fAdjDet.RefNo1
+      Site           fAdjhed.SiteCode
+      Location       fAdjhed.LocCode
+      Company        fAdjhed.comcode
+      Cost Centre    fAdjhed.CostCode
+      ! no customer column on fAdjhed / fAdjDet
+fmfgjbtrnhed  ->  fmfgjbtrndet   [header + detail lines]
+      Item code      fmfgjbtrnhed.ItemCode (then fmfgjbtrndet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmfgjbtrndet.Qty (document total when it has no lines)
+      Pieces         fmfgjbtrndet.Qtypc (document total when it has no lines)
+      Job No         fmfgjbtrnhed.RefNo1 (then fmfgjbtrndet.RefNo1)
+      Site           fmfgjbtrndet.SiteCode
+      Stage          fmfgjbtrndet.StagCode
+      Location       fmfgjbtrnhed.LocCode (then fmfgjbtrndet.LocCode)
+      Cost Centre    fmfgjbtrnhed.CostCode
+      ! no customer column on fmfgjbtrnhed / fmfgjbtrndet
+fAdjRolHed  ->  fAdjRolHed   [header only]
+      Item code      fAdjRolHed.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fAdjRolHed (expression)
+      Pieces         fAdjRolHed (expression)
+      Job No         fAdjRolHed.RefNo1
+      Site           fAdjRolHed.SiteCode
+      Stage          fAdjRolHed.StagCode
+      Location       fAdjRolHed.LocCode
+      Cost Centre    fAdjRolHed.CostCode
+      ! no customer column on fAdjRolHed
+fmWstInHed  ->  fmWstInDet   [header + detail lines]
+      Item code      fmWstInHed.ItemCode (then fmWstInDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmWstInDet.Qty (document total when it has no lines)
+      Pieces         fmWstInDet.Qtypc (document total when it has no lines)
+      Customer       fmWstInHed.DebCode -> fDebtor.DebName
+      Job No         fmWstInHed.RefNo1 (then fmWstInDet.RefNo1)
+      Machine        fmWstInHed.MachCode (then fmWstInDet.machcode)
+      Site           fmWstInHed.SiteCode (then fmWstInDet.SiteCode)
+      Stage          fmWstInHed.StagCode (then fmWstInDet.StagCode)
+      Location       fmWstInHed.LocCode (then fmWstInDet.LocCode)
+      Company        fmWstInHed.ComCode
+      Cost Centre    fmWstInHed.CostCode
+fLmpHed  ->  fLmpHed   [header only]
+      Item code      fLmpHed.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fLmpHed.Qty
+      Machine        fLmpHed.machcode
+      Site           fLmpHed.SiteCode
+      Location       fLmpHed.LocCode
+      Company        fLmpHed.ComCode
+      Cost Centre    fLmpHed.CostCode
+      ! no customer column on fLmpHed
+fmPipOrdhed  ->  fmPipOrdDet   [header + detail lines]
+      Item code      fmPipOrdDet.Itemcode
+      Name           fItems.ItemName
+      Quantity (Kg)  fmPipOrdDet.Qty
+      Customer       fmPipOrdhed.DebCode -> fDebtor.DebName
+      Job No         fmPipOrdhed.RefNo1
+      Location       fmPipOrdhed.LocCode
+      Company        fmPipOrdhed.ComCode
+      Cost Centre    fmPipOrdhed.CostCode
+fIssHed  ->  FIssDet   [header + detail lines]
+      Item code      FIssDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  FIssDet.Qty
+      Job No         fIssHed.RefNo1
+      Machine        FIssDet.machcode
+      Site           fIssHed.SiteCode (then FIssDet.SiteCode)
+      Stage          FIssDet.stagcode
+      Location       fIssHed.LocCode (then FIssDet.LocCode)
+      Company        fIssHed.ComCode
+      Cost Centre    fIssHed.CostCode
+      ! no customer column on fIssHed / FIssDet
+fIssRHed  ->  FIssrDet   [header + detail lines]
+      Item code      FIssrDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  FIssrDet.Qty
+      Job No         fIssRHed.RefNo1
+      Site           fIssRHed.SiteCode
+      Location       fIssRHed.LocCode
+      Company        fIssRHed.ComCode
+      Cost Centre    fIssRHed.CostCode
+      ! no customer column on fIssRHed / FIssrDet
+fRIssHed  ->  frIssDet   [header + detail lines]
+      Item code      frIssDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  frIssDet.Qty
+      Job No         fRIssHed.Refno1
+      Site           fRIssHed.SiteCode (then frIssDet.SiteCode)
+      Location       fRIssHed.LocCode (then frIssDet.LocCode)
+      Company        fRIssHed.ComCode
+      Cost Centre    fRIssHed.CostCode
+      ! no customer column on fRIssHed / frIssDet
+fAccpHed  ->  fAccpDet   [header + detail lines]
+      Item code      fAccpDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fAccpDet.Qty
+      Job No         fAccpHed.RefNo1
+      Site           fAccpHed.SiteCode
+      Location       fAccpHed.LocCode
+      Company        fAccpHed.ComCode
+      Cost Centre    fAccpHed.CostCode
+      ! no customer column on fAccpHed / fAccpDet
+fmBuAshed  ->  fmBuAsDet   [header + detail lines]
+      Item code      fmBuAshed.ItemCode (then fmBuAsDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmBuAshed.AloQtyKg (first line only)
+      Pieces         fmBuAsDet.QtyPc (document total when it has no lines)
+      Job No         fmBuAshed.RefNo1
+      Machine        fmBuAshed.MachCode
+      Site           fmBuAsDet.SiteCode
+      Stage          fmBuAshed.PrvStagCode (then fmBuAsDet.StagCode)
+      Location       fmBuAshed.LocCode (then fmBuAsDet.LocCode)
+      Company        fmBuAshed.ComCode
+      Cost Centre    fmBuAshed.CostCode
+      ! no customer column on fmBuAshed / fmBuAsDet
+fmJbTrnhed  ->  fmJbTrnDet   [header + detail lines]
+      Item code      fmJbTrnhed.ItemCode (then fmJbTrnDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmJbTrnDet.Qty (document total when it has no lines)
+      Pieces         fmJbTrnDet.Qtypc (document total when it has no lines)
+      Job No         fmJbTrnhed.RefNo1 (then fmJbTrnDet.RefNo1)
+      Site           fmJbTrnDet.SiteCode
+      Stage          fmJbTrnDet.StagCode
+      Location       fmJbTrnhed.LocCode (then fmJbTrnDet.LocCode)
+      Cost Centre    fmJbTrnhed.CostCode
+      ! no customer column on fmJbTrnhed / fmJbTrnDet
+fmFgTranHed  ->  fmFgTranDet   [header + detail lines]
+      Item code      fmFgTranDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fmFgTranDet.Qty (document total when it has no lines)
+      Pieces         fmFgTranDet.QtyPc (document total when it has no lines)
+      Customer       fmFgTranHed.DebCode -> fDebtor.DebName
+      Job No         fmFgTranHed.RefNo1 (then fmFgTranDet.RefNo1)
+      Site           fmFgTranDet.SiteCode
+      Stage          fmFgTranHed.StagCode
+      Location       fmFgTranDet.LocCode
+      Cost Centre    fmFgTranHed.CostCode
+fmWstAshed  ->  fmWstAsDet   [header + detail lines]
+      Item code      fmWstAshed.ItemCode (then fmWstAsDet.ItemCode)
+      Name           fItems.ItemName
+      Pieces         fmWstAshed.AloQty (first line only)
+      Machine        fmWstAshed.MachCode
+      Site           fmWstAsDet.SiteCode
+      Stage          fmWstAshed.StagCode
+      Location       fmWstAsDet.LocCode
+      Company        fmWstAshed.ComCode
+      Cost Centre    fmWstAshed.CostCode
+      ! no customer column on fmWstAshed / fmWstAsDet
+fWstHed  ->  fWstDet   [header + detail lines]
+      Item code      fWstDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fWstDet.Qty
+      Site           fWstHed.SiteCode (then fWstDet.SiteCode)
+      Location       fWstHed.LocCode (then fWstDet.LocCode)
+      Company        fWstHed.ComCode
+      Cost Centre    fWstHed.CostCode
+      ! no customer column on fWstHed / fWstDet
+fmSfAshed  ->  fmSfAsDet   [header + detail lines]
+      Item code      fmSfAshed.ItemCode (then fmSfAsDet.ItemCode)
+      Name           fItems.ItemName
+      Pieces         fmSfAshed.AloQty (first line only)
+      Machine        fmSfAshed.MachCode
+      Site           fmSfAshed.SiteCode (then fmSfAsDet.SiteCode)
+      Stage          fmSfAshed.StagCode
+      Location       fmSfAshed.LocCode (then fmSfAsDet.LocCode)
+      Company        fmSfAshed.ComCode
+      Cost Centre    fmSfAshed.CostCode
+      ! no customer column on fmSfAshed / fmSfAsDet
+fmJmTrnhed  ->  fmJmTrnDet   [header + detail lines]
+      Item code      fmJmTrnhed.ItemCode (then fmJmTrnDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmJmTrnDet.qtykg
+      Pieces         fmJmTrnhed.AloQty (first line only)
+      Job No         fmJmTrnDet.refno1
+      Machine        fmJmTrnhed.MachCode
+      Site           fmJmTrnDet.SiteCode
+      Stage          fmJmTrnhed.StagCode
+      Location       fmJmTrnDet.LocCode
+      Company        fmJmTrnhed.ComCode
+      Cost Centre    fmJmTrnhed.CostCode
+      ! no customer column on fmJmTrnhed / fmJmTrnDet
+fmMixAshed  ->  fmMixAsDet   [header + detail lines]
+      Item code      fmMixAshed.ItemCode (then fmMixAsDet.ItemCode)
+      Name           fItems.ItemName
+      Pieces         fmMixAshed.AloQty (first line only)
+      Machine        fmMixAshed.MachCode
+      Site           fmMixAsDet.SiteCode
+      Stage          fmMixAshed.StagCode
+      Location       fmMixAsDet.LocCode
+      Company        fmMixAshed.ComCode
+      Cost Centre    fmMixAshed.CostCode
+      ! no customer column on fmMixAshed / fmMixAsDet
+fmpipAshed  ->  fmPipAsdet   [header + detail lines]
+      Item code      fmpipAshed.ItemCode (then fmPipAsdet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmpipAshed.TotWeight (first line only)
+      Pieces         fmpipAshed.TotQty (first line only)
+      Machine        fmpipAshed.machcode
+      Site           fmPipAsdet.SiteCode
+      Stage          fmpipAshed.StagCode
+      Location       fmPipAsdet.LocCode
+      Company        fmpipAshed.ComCode
+      Cost Centre    fmpipAshed.CostCode
+      ! no customer column on fmpipAshed / fmPipAsdet
+fmlsAshed  ->  fmLsAsDet   [header + detail lines]
+      Item code      fmlsAshed.ItemCode (then fmLsAsDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmlsAshed.AloQtyKg (first line only)
+      Pieces         fmLsAsDet.QtyPc (document total when it has no lines)
+      Job No         fmlsAshed.RefNo1
+      Machine        fmlsAshed.MachCode
+      Site           fmLsAsDet.SiteCode
+      Stage          fmlsAshed.PrvStagCode (then fmLsAsDet.StagCode)
+      Location       fmlsAshed.LocCode (then fmLsAsDet.LocCode)
+      Company        fmlsAshed.ComCode
+      Cost Centre    fmlsAshed.CostCode
+      ! no customer column on fmlsAshed / fmLsAsDet
+fAgloHed  ->  fAgloHed   [header only]
+      Item code      fAgloHed.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fAgloHed.Qty
+      Machine        fAgloHed.machcode
+      Site           fAgloHed.SiteCode
+      Location       fAgloHed.LocCode
+      Company        fAgloHed.ComCode
+      Cost Centre    fAgloHed.CostCode
+      ! no customer column on fAgloHed
+fmInkAshed  ->  fmInkAsDet   [header + detail lines]
+      Item code      fmInkAshed.ItemCode (then fmInkAsDet.ItemCode)
+      Name           fItems.ItemName
+      Pieces         fmInkAshed.AloQty (first line only)
+      Machine        fmInkAshed.MachCode
+      Site           fmInkAsDet.SiteCode
+      Stage          fmInkAshed.StagCode
+      Location       fmInkAsDet.LocCode
+      Company        fmInkAshed.ComCode
+      Cost Centre    fmInkAshed.CostCode
+      ! no customer column on fmInkAshed / fmInkAsDet
+FiRIssHed  ->  FiRIssDet   [header + detail lines]
+      Item code      FiRIssDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  FiRIssDet.Qty
+      Job No         FiRIssHed.Refno1
+      Site           FiRIssHed.SiteCode (then FiRIssDet.SiteCode)
+      Location       FiRIssHed.LocCode (then FiRIssDet.LocCode)
+      Company        FiRIssHed.ComCode
+      Cost Centre    FiRIssHed.CostCode
+      ! no customer column on FiRIssHed / FiRIssDet
+fiAccpHed  ->  fiAccpDet   [header + detail lines]
+      Item code      fiAccpDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fiAccpDet.Qty
+      Job No         fiAccpHed.RefNo1
+      Site           fiAccpHed.SiteCode
+      Location       fiAccpHed.LocCode
+      Company        fiAccpHed.ComCode
+      Cost Centre    fiAccpHed.CostCode
+      ! no customer column on fiAccpHed / fiAccpDet
+flRIssHed  ->  flrissdet   [header + detail lines]
+      Item code      flrissdet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  flrissdet.Qty
+      Site           flRIssHed.SiteCode (then flrissdet.SiteCode)
+      Stage          flRIssHed.StagCode
+      Location       flRIssHed.LocCode (then flrissdet.LocCode)
+      Company        flRIssHed.ComCode
+      Cost Centre    flRIssHed.CostCode
+      ! no customer column on flRIssHed / flrissdet
+fBldAsmbHed  ->  fBldAsmbDet   [header + detail lines]
+      Item code      fBldAsmbDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fBldAsmbDet.Qty
+      Job No         fBldAsmbHed.RefNo1 (then fBldAsmbDet.RefNo1)
+      Machine        fBldAsmbHed.machcode
+      Site           fBldAsmbHed.FSiteCode (then fBldAsmbDet.SiteCode)
+      Location       fBldAsmbHed.FLocCode (then fBldAsmbDet.LocCode)
+      Company        fBldAsmbHed.ComCode
+      Cost Centre    fBldAsmbHed.CostCode
+      ! no customer column on fBldAsmbHed / fBldAsmbDet
+flrIssRHed  ->  flrissrdet   [header + detail lines]
+      Item code      flrissrdet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  flrissrdet.Qty
+      Job No         flrIssRHed.RefNo1
+      Site           flrIssRHed.SiteCode
+      Location       flrIssRHed.LocCode
+      Company        flrIssRHed.ComCode
+      Cost Centre    flrIssRHed.CostCode
+      ! no customer column on flrIssRHed / flrissrdet
+fmLspAsHed  ->  fmLspAsdet   [header + detail lines]
+      Item code      fmLspAsHed.ItemCode (then fmLspAsdet.ItemCode)
+      Name           fItems.ItemName
+      Pieces         fmLspAsHed.AloQty (first line only)
+      Machine        fmLspAsHed.machcode
+      Site           fmLspAsdet.SiteCode
+      Stage          fmLspAsHed.StagCode
+      Location       fmLspAsdet.LocCode
+      Company        fmLspAsHed.ComCode
+      Cost Centre    fmLspAsHed.CostCode
+      ! no customer column on fmLspAsHed / fmLspAsdet
+FMixOHed  ->  FMixODet   [header + detail lines]
+      Item code      FMixODet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  FMixODet.Qty
+      Job No         FMixOHed.RefNo1
+      Site           FMixOHed.SiteCode (then FMixODet.SiteCode)
+      Location       FMixOHed.LocCode (then FMixODet.LocCode)
+      Company        FMixOHed.ComCode
+      Cost Centre    FMixOHed.CostCode
+      ! no customer column on FMixOHed / FMixODet
+fMixHed  ->  fMixDet   [header + detail lines]
+      Item code      fMixDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fMixDet.Qty
+      Job No         fMixHed.jobno
+      Site           fMixHed.SiteCode (then fMixDet.SiteCode)
+      Location       fMixHed.LocCode
+      Company        fMixHed.ComCode
+      ! no customer column on fMixHed / fMixDet
+fmStTrnhed  ->  fmStTrnDet   [header + detail lines]
+      Item code      fmStTrnhed.ItemCode (then fmStTrnDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmStTrnDet.Qty (document total when it has no lines)
+      Pieces         fmStTrnDet.Qtypc (document total when it has no lines)
+      Job No         fmStTrnhed.RefNo1 (then fmStTrnDet.RefNo1)
+      Site           fmStTrnhed.sitecode (then fmStTrnDet.SiteCode)
+      Stage          fmStTrnhed.stagcode (then fmStTrnDet.StagCode)
+      Location       fmStTrnhed.LocCode (then fmStTrnDet.LocCode)
+      Company        fmStTrnhed.comcode
+      Cost Centre    fmStTrnhed.CostCode
+      ! no customer column on fmStTrnhed / fmStTrnDet
+fmRFgTranHed  ->  fmRFgTranDet   [header + detail lines]
+      Item code      fmRFgTranDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  fmRFgTranDet.Qty (document total when it has no lines)
+      Pieces         fmRFgTranDet.QtyPc (document total when it has no lines)
+      Customer       fmRFgTranHed.DebCode -> fDebtor.DebName
+      Job No         fmRFgTranHed.RefNo1 (then fmRFgTranDet.RefNo1)
+      Site           fmRFgTranDet.SiteCode
+      Stage          fmRFgTranHed.StagCode
+      Location       fmRFgTranDet.LocCode
+      Cost Centre    fmRFgTranHed.CostCode
+fmRStTrnhed  ->  fmRStTrnDet   [header + detail lines]
+      Item code      fmRStTrnhed.ItemCode (then fmRStTrnDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmRStTrnDet.Qty (document total when it has no lines)
+      Pieces         fmRStTrnDet.Qtypc (document total when it has no lines)
+      Job No         fmRStTrnhed.RefNo1 (then fmRStTrnDet.RefNo1)
+      Site           fmRStTrnDet.SiteCode
+      Stage          fmRStTrnDet.StagCode
+      Location       fmRStTrnhed.LocCode (then fmRStTrnDet.LocCode)
+      Cost Centre    fmRStTrnhed.CostCode
+      ! no customer column on fmRStTrnhed / fmRStTrnDet - possible: fmRStTrnhed.CusPo (set customer: '<column>' in DETAIL_OVERRIDES)
+fOpnhed  ->  fstkin   [header + detail lines]
+      Item code      fstkin.ItemCode
+      Name           fItems.ItemName
+      Customer       fOpnhed.DebCode -> fDebtor.DebName
+      Job No         fOpnhed.JobNo (then fstkin.JobNo)
+      Site           fOpnhed.SiteCode (then fstkin.SiteCode)
+      Stage          fOpnhed.StagCode
+      Location       fOpnhed.LocCode (then fstkin.LocCode)
+      Company        fOpnhed.ComCode
+      Cost Centre    fOpnhed.CostCode
+fmLFgTranHed  ->  fmLFgTranDet   [header + detail lines]
+      Item code      fmLFgTranHed.ItemCode (then fmLFgTranDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmLFgTranDet.Qty (document total when it has no lines)
+      Pieces         fmLFgTranHed.QtyPc (first line only)
+      Customer       fmLFgTranHed.DebCode -> fDebtor.DebName
+      Job No         fmLFgTranHed.RefNo1
+      Site           fmLFgTranHed.SiteCode
+      Stage          fmLFgTranHed.StagCode
+      Location       fmLFgTranHed.LocCode
+      Cost Centre    fmLFgTranHed.CostCode
+flmWstInHed  ->  flmWstInDet   [header + detail lines]
+      Item code      flmWstInDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  flmWstInDet.Qty
+      Site           flmWstInHed.SiteCode
+      Location       flmWstInHed.LocCode
+      Company        flmWstInHed.ComCode
+      Cost Centre    flmWstInHed.CostCode
+      ! no customer column on flmWstInHed / flmWstInDet
+fmSizTranHed  ->  fmSizTrandet   [header + detail lines]
+      Item code      fmSizTranHed.ItemCode (then fmSizTrandet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmSizTranHed.TotWeight (first line only)
+      Pieces         fmSizTranHed.TotQty (first line only)
+      Site           fmSizTrandet.SiteCode
+      Stage          fmSizTranHed.StagCode
+      Location       fmSizTrandet.LocCode
+      Company        fmSizTranHed.ComCode
+      Cost Centre    fmSizTranHed.CostCode
+      ! no customer column on fmSizTranHed / fmSizTrandet
+fmPStTrnhed  ->  fmPStTrnDet   [header + detail lines]
+      Item code      fmPStTrnhed.ItemCode (then fmPStTrnDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity (Kg)  fmPStTrnDet.Qty (document total when it has no lines)
+      Pieces         fmPStTrnDet.Qtypc (document total when it has no lines)
+      Job No         fmPStTrnhed.RefNo1 (then fmPStTrnDet.RefNo1)
+      Site           fmPStTrnDet.SiteCode
+      Stage          fmPStTrnDet.StagCode
+      Location       fmPStTrnhed.LocCode (then fmPStTrnDet.LocCode)
+      Cost Centre    fmPStTrnhed.CostCode
+      ! no customer column on fmPStTrnhed / fmPStTrnDet - possible: fmPStTrnhed.CusPo (set customer: '<column>' in DETAIL_OVERRIDES)
+frDispHed  ->  frDispDet   [header + detail lines]
+      Item code      frDispDet.ItemCode
+      Name           fItems.ItemName
+      Quantity (Kg)  frDispDet.QtyKG (or frDispDet.Qty when it is 0)
+      Invoice No     frDispHed.RefNo1
+      Customer       frDispHed.DebCode -> fDebtor.DebName
+      Job No         frDispDet.RefNo1
+      Site           frDispHed.SiteCode
+      Location       frDispHed.LocCode
+      Company        frDispHed.comcode
+      Cost Centre    frDispHed.CostCode

@@ -12,6 +12,7 @@
     "erp:connect": "ts-node src/scripts/connectErp.ts",
     "erp:inspect": "ts-node src/scripts/inspectErp.ts",
     "erp:describe": "ts-node src/scripts/describeErp.ts",
+    "erp:mfg-view": "ts-node src/scripts/buildMfgView.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "erp:find": "ts-node src/scripts/findErp.ts"
   },

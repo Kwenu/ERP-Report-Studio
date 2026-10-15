@@ -19,6 +19,10 @@ interface ReportControlsBarProps {
   requestedAt: Date;
   panelOpen: boolean;
   onOpenPanel: () => void;
+  /** Manufacturing Quick Report: the transaction types found in the period + the selected one ('' = All). */
+  typeOptions?: string[];
+  typeFilter?: string;
+  onTypeChange?: (value: string) => void;
 }
 
 const label = 'whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-ink-500';
@@ -39,7 +43,10 @@ export function ReportControlsBar({
   selectedCount,
   requestedAt,
   panelOpen,
-  onOpenPanel
+  onOpenPanel,
+  typeOptions = [],
+  typeFilter = '',
+  onTypeChange
 }: ReportControlsBarProps) {
   const running = meta.state === 'running';
 
@@ -129,6 +136,27 @@ export function ReportControlsBar({
             }
           </select>
         </div>
+
+        {definition.dataset === 'mfgQuick' && onTypeChange &&
+        <div className="flex items-center gap-1">
+            <span className={label}>Type</span>
+            <select
+            aria-label="Filter by type"
+            value={typeFilter}
+            onChange={(e) => onTypeChange(e.target.value)}
+            className={`${compactSelectClass} w-[210px]`}>
+            
+              <option value="">All</option>
+              {typeOptions.map((t) =>
+            <option key={t} value={t}>{t}</option>
+            )}
+              {/* keeps the current choice visible while the list is still loading */}
+              {typeFilter && !typeOptions.includes(typeFilter) &&
+            <option value={typeFilter}>{typeFilter}</option>
+            }
+            </select>
+          </div>
+        }
 
         <div className="relative w-44">
           <SearchIcon className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-400" />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
@@ -27,7 +27,7 @@ import { ReportControlsBar } from './ReportControlsBar';
 import { Button } from '../ui/Button';
 import { useApp, canDesign } from '../../contexts/AppContext';
 import { useErpConnection } from '../../contexts/ErpConnectionContext';
-import { useErpQuery } from '../../hooks/useErpQuery';
+import { useErpQuery, useTypeOptions } from '../../hooks/useErpQuery';
 import { exportCsv, exportExcel, exportPdf } from '../../utils/exporter';
 import { compactSelectClass } from '../../utils/ui';
 
@@ -79,6 +79,8 @@ export function ReportWorkspace({
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+  /** Manufacturing Quick Report: the transaction type chosen in the Type drop-down ('' = All types). */
+  const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [refreshedAt, setRefreshedAt] = useState(() => new Date());
@@ -88,7 +90,16 @@ export function ReportWorkspace({
   const visibleColumns = definition.columns.filter((c) => c.visible);
 
   /* Studio → API → query engine → ERP database → rows */
-  const { meta: queryMeta, rerun, rows: remoteRows } = useErpQuery(definition, activeSource.name);
+  const { meta: queryMeta, rerun, rows: remoteRows } = useErpQuery(definition, activeSource.name, typeFilter);
+  const { options: typeOptions, upToDate: typeOptionsReady } = useTypeOptions(definition, refreshedAt);
+
+  // If the period changes and the chosen type has no transactions in it any more, fall back to All.
+  useEffect(() => {
+    if (typeFilter && typeOptionsReady && typeOptions.length > 0 && !typeOptions.includes(typeFilter)) {
+      setTypeFilter('');
+      setPage(0);
+    }
+  }, [typeFilter, typeOptions, typeOptionsReady]);
 
   const rows = useMemo(() => {
     let data = remoteRows ?? [];
@@ -351,7 +362,14 @@ export function ReportWorkspace({
           selectedCount={selectedRows.length}
           requestedAt={refreshedAt}
           panelOpen={panelOpen}
-          onOpenPanel={() => setPanelOpen(true)} />
+          onOpenPanel={() => setPanelOpen(true)}
+          typeOptions={typeOptions}
+          typeFilter={typeFilter}
+          onTypeChange={(value) => {
+            setTypeFilter(value);
+            setPage(0);
+            setSelectedRows([]);
+          }} />
         
 
         <FilterChips
@@ -374,7 +392,7 @@ export function ReportWorkspace({
             emptyState :
 
             <>
-            <ReportHeading definition={definition} />
+            <ReportHeading definition={definition} typeLabel={definition.dataset === 'mfgQuick' ? typeFilter : ''} />
             {pivot && pivot.pivotColumnCount > pivot.pivotColumnsShown &&
               <p className="border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-2xs text-amber-800" role="status">
                   The Columns fields have {pivot.pivotColumnCount.toLocaleString()} distinct values. Showing the first{' '}

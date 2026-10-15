@@ -317,7 +317,9 @@ export async function runQuery(definition: ReportDefinition, signal?: { cancelle
  * then computed in the browser by the existing report engine, exactly as before.
  */
 export async function fetchDatasetRows(
-  definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo' | 'filters'>
+  definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo' | 'filters'>,
+  /** Manufacturing Quick Report only: limit the rows to ONE transaction type ('' / undefined = all types). */
+  typeFilter?: string
 ): Promise<QueryResponse & { truncated: boolean }> {
   const result = await http<QueryResponse>('/reports/query', {
     method: 'POST',
@@ -330,6 +332,10 @@ export async function fetchDatasetRows(
       (definition.filters ?? []).
       filter((f) => f.key === 'customerId' && f.operator === 'equals' && f.value).
       map((f) => ({ key: f.key, operator: f.operator, value: f.value, connector: 'AND' })) :
+      // Manufacturing Quick Report: the Type drop-down is applied by the database, so a type is complete
+      // even when the whole period holds more than the 20,000-row limit.
+      definition.dataset === 'mfgQuick' && typeFilter ?
+      [{ key: 'type', operator: 'equals', value: typeFilter, connector: 'AND' }] :
       [],
       sort: [],
       dateFrom: definition.dateFrom || undefined,
@@ -352,4 +358,19 @@ export async function fetchTableRows(
     body: JSON.stringify({ table, columns, limit: 20000 }),
     timeoutMs: 120_000
   });
+}
+
+
+/** POST /reports/distinct-values — every distinct value of one dataset column in the period (e.g. all Types). */
+export async function fetchDistinctValues(
+  dataset: ReportDefinition['dataset'],
+  column: string,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<string[]> {
+  const result = await http<{ values: string[] }>('/reports/distinct-values', {
+    method: 'POST',
+    body: JSON.stringify({ dataset, column, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined })
+  });
+  return result.values;
 }

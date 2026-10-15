@@ -3,7 +3,6 @@ import { env } from './config/env';
 import { pool } from './db/pool';
 
 async function main() {
-  // Fail fast with a clear message if the database isn't reachable.
   try {
     await pool.query('SELECT 1');
   } catch (err) {
@@ -22,7 +21,6 @@ async function main() {
   });
 }
 
-// A failed ERP connection must never take the API down.
 process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:', reason));
 
 main();

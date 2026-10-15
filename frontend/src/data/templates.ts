@@ -359,7 +359,7 @@ export const manufacturingQuickReport: ReportDefinition = {
   id: 'manufacturing-quick-report',
   name: 'Manufacturing Quick Report',
   description:
-  'Every manufacturing and stock transaction of the period (build assemblies, job and site transfers, issue and acceptance notes, wastage ...) with its job, item, machine, quantity, site, stage, location, company and cost centre. Click the PDF icon next to a reference number to view that transaction.',
+  'Every manufacturing and stock transaction of the period (build assemblies, job and site transfers, issue and acceptance notes, wastage ...), one row per detail line, with its customer, job, item, machine, quantity, site, stage, location, company and cost centre. Click the PDF icon next to a reference number to view that transaction.',
   category: 'Manufacturing',
   dataset: 'mfgQuick',
   dateFrom: defaultPeriod.from,
@@ -371,7 +371,9 @@ export const manufacturingQuickReport: ReportDefinition = {
   columns: [
   makeColumn('MfgQuick.Type', 'type', 'Type', 'text', { width: 230, locked: true }),
   makeColumn('MfgQuick.ReferenceNo', 'reference', 'Reference No', 'text', { width: 160, locked: true }),
+  makeColumn('MfgQuick.Customer', 'customer', 'Customer', 'text', { width: 220, locked: true }),
   makeColumn('MfgQuick.Date', 'date', 'Date', 'date', { width: 96, locked: true }),
+  makeColumn('MfgQuick.InvoiceNo', 'invoiceNo', 'Invoice No', 'text', { width: 140, locked: true }),
   makeColumn('MfgQuick.JobNo', 'jobNo', 'Jobno', 'text', { width: 120, locked: true }),
   makeColumn('MfgQuick.ManualNo', 'manualNo', 'Manual No', 'text', { width: 110, locked: true }),
   makeColumn('MfgQuick.ItemCode', 'itemCode', 'Item code', 'text', { width: 110, locked: true }),
@@ -449,6 +451,8 @@ export function groupOptionsFor(dataset: ReportDefinition['dataset']): {key: str
   if (dataset === 'mfgQuick') {
     return [
     { key: 'type', label: 'Transaction Type' },
+    { key: 'customer', label: 'Customer' },
+    { key: 'invoiceNo', label: 'Invoice No' },
     { key: 'jobNo', label: 'Job No' },
     { key: 'itemName', label: 'Item' },
     { key: 'machine', label: 'Machine' },

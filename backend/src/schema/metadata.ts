@@ -331,7 +331,8 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       currency: { dataType: 'text', label: 'Currency' }
     }
   },
-  // Manufacturing Quick Report: one row per manufacturing / stock transaction (see db/erp_views.manufacturing.sql)
+  // Manufacturing Quick Report: one row per detail line of each manufacturing / stock transaction (header + detail tables).
+  // The view is generated from the ERP database by `npm run erp:mfg-view` (see src/services/mfgViewBuilder.ts).
   mfgQuick: {
     id: 'mfgQuick',
     view: 'v_manufacturing_quick',
@@ -341,7 +342,9 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       txnType: { dataType: 'text', label: 'Txn Type Code' },
       source: { dataType: 'text', label: 'Source Table' },
       reference: { dataType: 'text', label: 'Reference No' },
+      customer: { dataType: 'text', label: 'Customer' },
       date: { dataType: 'date', label: 'Date' },
+      invoiceNo: { dataType: 'text', label: 'Invoice No' },
       jobNo: { dataType: 'text', label: 'Job No' },
       manualNo: { dataType: 'text', label: 'Manual No' },
       itemCode: { dataType: 'text', label: 'Item Code' },

@@ -11,7 +11,7 @@ function periodLabel(def: ReportDefinition): string {
   return `${formatDate(def.dateFrom)} — ${formatDate(def.dateTo)}`;
 }
 
-export function ReportHeading({ definition }: {definition: ReportDefinition;}) {
+export function ReportHeading({ definition, typeLabel }: {definition: ReportDefinition;typeLabel?: string;}) {
   return (
     <>
       {/* On screen: one slim line, so the data gets the room. */}
@@ -21,6 +21,12 @@ export function ReportHeading({ definition }: {definition: ReportDefinition;}) {
         <span className="font-semibold text-ink-900">{definition.name}</span>
         <span className="text-ink-400">·</span>
         <span>{periodLabel(definition)}</span>
+        {typeLabel &&
+        <>
+            <span className="text-ink-400">·</span>
+            <span className="text-2xs uppercase tracking-wide text-ink-500">Type: {typeLabel}</span>
+          </>
+        }
         {definition.basis &&
         <>
             <span className="text-ink-400">·</span>
@@ -35,6 +41,7 @@ export function ReportHeading({ definition }: {definition: ReportDefinition;}) {
         <h2 className="text-base font-bold text-ink-900">{definition.name}</h2>
         {definition.subtitle && <p className="text-xs text-ink-700">{definition.subtitle}</p>}
         <p className="text-xs text-ink-700">{periodLabel(definition)}</p>
+        {typeLabel && <p className="text-xs text-ink-700">Type: {typeLabel}</p>}
         {definition.basis &&
         <p className="mt-0.5 text-2xs uppercase tracking-wide text-ink-500">Report Basis: {definition.basis}</p>
         }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { QueryResultMeta, ReportDefinition, Row } from '../types/erp';
-import { fetchDatasetRows, fetchTableRows } from '../services/erpApi';
+import { fetchDatasetRows, fetchDistinctValues, fetchTableRows } from '../services/erpApi';
 import { useErpConnection } from '../contexts/ErpConnectionContext';
 
 const SEP = '\u0001';
@@ -31,7 +31,7 @@ function neededKeys(def: ReportDefinition): string[] {
  * Standard reports read one of the curated datasets. Report Builder reports read just the columns they use
  * from one real ERP table. Filters / grouping / pivoting / totals are applied afterwards by the report engine.
  */
-export function useErpQuery(definition: ReportDefinition, dataSourceName: string) {
+export function useErpQuery(definition: ReportDefinition, dataSourceName: string, typeFilter = '') {
   const { activeSource } = useErpConnection();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [meta, setMeta] = useState<QueryResultMeta>({
@@ -65,7 +65,7 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
     activeSource.id === 'none' ?
     Promise.reject(new Error('No data source is connected. Add one on the Data Sources page.')) :
     fetchTableRows(activeSource.id, definition.sourceTable as string, tableColumns.split(SEP)) :
-    fetchDatasetRows(definition);
+    fetchDatasetRows(definition, typeFilter);
 
     request.
     then((response) => {
@@ -89,9 +89,47 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [definition.dataset, definition.sourceTable, tableColumns, definition.dateFrom, definition.dateTo, customerKey, nonce, dataSourceName, activeSource.id]);
+  }, [definition.dataset, definition.sourceTable, tableColumns, definition.dateFrom, definition.dateTo, customerKey, typeFilter, nonce, dataSourceName, activeSource.id]);
 
   const rerun = useCallback(() => setNonce((n) => n + 1), []);
 
   return { meta, rerun, rows };
+}
+
+/**
+ * The Manufacturing Quick Report's "Type" drop-down: every distinct transaction type found in the period
+ * (read from the whole period in the database, so the list is complete even when the rows are truncated).
+ * Other reports get an empty list. Reloads when the period or the data source changes, or Refresh is pressed.
+ */
+export function useTypeOptions(definition: ReportDefinition, refreshKey: unknown) {
+  const { activeSource } = useErpConnection();
+  const [options, setOptions] = useState<string[]>([]);
+  /** The period the current `options` were loaded for (so callers know when the list is up to date). */
+  const [loadedFor, setLoadedFor] = useState('');
+  const enabled = definition.dataset === 'mfgQuick';
+  const periodKey = `${definition.dateFrom ?? ''}|${definition.dateTo ?? ''}`;
+
+  useEffect(() => {
+    if (!enabled) {
+      setOptions([]);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchDistinctValues('mfgQuick', 'type', definition.dateFrom, definition.dateTo).
+    then((values) => {
+      if (cancelled) return;
+      setOptions(values);
+      setLoadedFor(periodKey);
+    }).
+    catch(() => {
+      // Not fatal: the report itself still loads; the drop-down just offers "All types".
+      if (!cancelled) setOptions([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, periodKey, activeSource.id, refreshKey]);
+
+  return { options, upToDate: loadedFor === periodKey };
 }

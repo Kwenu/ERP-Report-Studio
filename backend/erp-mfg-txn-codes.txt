@@ -1,0 +1,73 @@
+Txn Type codes in the ERP database, for the transaction names that share one header table.
+A code with no name yet shows the table's default type name in the report. To give it its own name, add the code in TXN_NAMES (mfgViewBuilder.ts),
+e.g. ['frDispHed', 'Dispatch - Walk In', 'DWI'], then run the command again.
+Codes matched automatically from dbo.fStockTxnDetails: 18 of 33 names.
+
+fAdjhed  (6 names: Lami. FG Adjustments Addition Entry | Return Accept Quantity In Entry | Return Reject Quantity In Entry = 14 | FG Adjustments Addition Entry = 15 | FG Adjustments Deduction Entry | SF Adjustments Deduction Entry)
+    code 14               1 documents   e.g. RRI/2609/001   -> Return Reject Quantity In Entry
+    code 15              43 documents   e.g. FGA/2604/001   -> FG Adjustments Addition Entry
+    code 50              61 documents   e.g. AA/2603/0002   (no name yet)
+    code 51              59 documents   e.g. AD/2604/0001   (no name yet)
+    code 73               3 documents   e.g. AA/2605/0001   (no name yet)
+
+fmfgjbtrnhed  (2 names: Lami. FG Job Transfer | FG Job Transfer = 93)
+    code 93              83 documents   e.g. FJT/2601/001   -> FG Job Transfer
+
+fmWstInHed  (2 names: FG To Waste = 17 | Wastage In Job Wise = 43)
+    code 17               2 documents   e.g. WF/2606/0001   -> FG To Waste
+    code 43            1909 documents   e.g. WJ/2603/0004   -> Wastage In Job Wise
+
+fIssRHed  (2 names: Acceptance Note = 33 | INK Return Entry)
+    code 31               6 documents   e.g. RI/2604/0001   (no name yet)
+    code 33             257 documents   e.g. WA/2604/0002   -> Acceptance Note
+    code 52             281 documents   e.g. ISA/2507/001   (no name yet)
+    code 58              49 documents   e.g. WA/2604/0011   (no name yet)
+    code 59              12 documents   e.g. WA/2604/0001   (no name yet)
+    code 91               5 documents   e.g. IU/2604/0001   (no name yet)
+
+fRIssHed  (2 names: Issue - Coco = 34 | Issue Extra - Coco)
+    code 34            1177 documents   e.g. CI/2604/0001   -> Issue - Coco
+
+fmpipAshed  (2 names: Pipe Build Assembly = 48 | Pipe Waste Build Allocation = 77)
+    code 48             227 documents   e.g. PB/2604/0002   -> Pipe Build Assembly
+    code 77             153 documents   e.g. PWB/2604/001   -> Pipe Waste Build Allocation
+
+FiRIssHed  (2 names: INK Issue Note = 64 | Issue Note)
+    code 64            1086 documents   e.g. INS/2604/001   -> INK Issue Note
+    code 66             230 documents   e.g. SN/2604/0001   (no name yet)
+
+flRIssHed  (2 names: Issue Note - Standard (Lami) = 68 | Issue Note - Extra (Lami))
+    code 68              14 documents   e.g. LSI/2607/003   -> Issue Note - Standard (Lami)
+
+fmStTrnhed  (2 names: Site Transfer FG = 80 | Site Transfer WIP = 96)
+    code 80            1108 documents   e.g. JS/2604/0001   -> Site Transfer FG
+    code 96             138 documents   e.g. JS/2604/0004   -> Site Transfer WIP
+
+frDispHed  (11 names: Sample Gate Pass | Dispatch - Stretch Film | Dispatch - Local Sales = 54 | Dispatch - Walk In = 56 | Dispatch - Pipes | Dispatch Walking-Pipe = 62 | Dispatch Note - Coco = 72 | Dispatch Note - Lamination = 86 | Dispatch Note - Trading | Dispatch Return Note | Dispatch Ret. Note-Pipe)
+    code 53              36 documents   e.g. DSF/2604/001   (no name yet)
+    code 54             139 documents   e.g. DLC/2604/001   -> Dispatch - Local Sales
+    code 56             319 documents   e.g. DW/2604/0011   -> Dispatch - Walk In
+    code 62             273 documents   e.g. DW/2604/0002   -> Dispatch Walking-Pipe
+    code 72            1963 documents   e.g. DO/2604/0001   -> Dispatch Note - Coco
+    code 86               8 documents   e.g. DLM/2609/003   -> Dispatch Note - Lamination
+
+
+Dispatch coverage
+
+frDispHed: 2,738 dispatch documents, all included in the report.
+  36 of them have a Txn Type code that has no name yet and show as "Dispatch" (codes: erp-mfg-txn-codes.txt).
+
+Other tables with "Disp" in the name that the report does NOT read:
+    lfDispDet - 0 rows
+    fDispHed - 294 rows
+    fDisPo - 0 rows
+    fDispDet - 344 rows
+    fDispIss - 302 rows
+    ffDispHed - 0 rows
+    frDispIss - 4,158 rows
+    lDispDet - 311 rows
+    ffDispDet - 0 rows
+  If any of these hold dispatches that should be in the report, tell me the header / detail table names and the type names.
+
+Invoice numbers:
+  frDispHed.RefNo1: 100% of 1096 recent values are invoice numbers (e.g. ICO/2604/001) -> Invoice No

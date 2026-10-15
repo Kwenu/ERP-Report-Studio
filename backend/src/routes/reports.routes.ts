@@ -231,6 +231,64 @@ const queryBodySchema = z.object({
   reportId: z.string().optional() // when set, updates the report's last_run timestamp
 });
 
+/* ------------------------------------------------------------------ *
+ * POST /api/v1/reports/distinct-values
+ * The distinct values of ONE column of a dataset (optionally within a
+ * date range) — used to fill the "Type" drop-down of the Manufacturing
+ * Quick Report. The column is whitelisted by the query builder, and the
+ * values are read from the whole period, not just the first 20,000 rows.
+ * ------------------------------------------------------------------ */
+const distinctBodySchema = z.object({
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick']),
+  column: z.string().min(1),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional()
+});
+
+reportsRouter.post(
+  '/distinct-values',
+  asyncHandler(async (req, res) => {
+    const input = distinctBodySchema.parse(req.body);
+
+    let conn;
+    try {
+      conn = await getReportConnector();
+    } catch (err) {
+      if (err instanceof NoDataSourceError) return res.status(409).json({ error: err.message });
+      throw err;
+    }
+
+    let built;
+    try {
+      // GROUP BY <column> returns each distinct value exactly once.
+      built = buildReportQuery({
+        dataset: input.dataset,
+        columns: [{ key: input.column }],
+        groupBy: input.column,
+        sort: [{ key: input.column, dir: 'asc' }],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        pageSize: 20000,
+        dialect: conn.dialect
+      });
+    } catch (err) {
+      if (err instanceof QueryValidationError) return res.status(400).json({ error: err.message });
+      throw err;
+    }
+
+    try {
+      const result = await conn.query(built.sql, built.params);
+      const values = result.rows
+        .map((r: any) => (r[input.column] === null || r[input.column] === undefined ? '' : String(r[input.column]).trim()))
+        .filter((v: string) => v !== '');
+      res.json({ values: [...new Set<string>(values)].sort((a, b) => a.localeCompare(b)) });
+    } catch (err: any) {
+      console.error('Distinct values query failed:', err.message, '\nSQL:', built.sql);
+      res.status(502).json({ error: `The ERP database rejected the query: ${err.message}` });
+    }
+  })
+);
+
 reportsRouter.post(
   '/query',
   asyncHandler(async (req, res) => {
@@ -247,7 +305,8 @@ reportsRouter.post(
     // The newer columns (manual no., currency, company) only exist once backend/db/erp_views.polydime.sql has been
     // re-run. Until then the report must still open, so a view that lacks one of them is queried without it
     // (those cells are simply empty) instead of failing the whole report.
-    const OPTIONAL_COLUMNS = new Set(['manualNo', 'currency', 'company']);
+    // (customer / invoiceNo: the Manufacturing Quick Report's Customer and Invoice No columns - only once `npm run erp:mfg-view` has rebuilt that view.)
+    const OPTIONAL_COLUMNS = new Set(['manualNo', 'currency', 'company', 'customer', 'invoiceNo']);
     const skipped = new Set<string>();
     const wantedColumns = () => {
       const ds = DATASETS[input.dataset];
@@ -300,14 +359,16 @@ reportsRouter.post(
             /* keep the full list */
           }
           if (missing.length) {
-            const files = [
-              missing.some((v) => v !== 'v_manufacturing_quick') ? 'backend/db/erp_views.polydime.sql' : '',
-              missing.includes('v_manufacturing_quick') ? 'backend/db/erp_views.manufacturing.sql' : ''
-            ].filter(Boolean).join(' and ');
+            const steps = [
+              missing.some((v) => v !== 'v_manufacturing_quick') ?
+                'Run backend/db/erp_views.polydime.sql in SSMS on that database' : '',
+              missing.includes('v_manufacturing_quick') ?
+                'Run `npm run erp:mfg-view -- --apply` in the backend folder (or run the db/erp_views.manufacturing.generated.sql it writes, in SSMS) to build the manufacturing view' : ''
+            ].filter(Boolean).join('. ');
             return res.status(502).json({
               error:
                 `The report views are not installed in ${conn.label}: ${missing.join(', ')}. ` +
-                `Run ${files} in SSMS on that database, then press Refresh.`,
+                `${steps}, then press Refresh.`,
               missingViews: missing
             });
           }
