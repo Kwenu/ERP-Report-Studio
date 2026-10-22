@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { label: 'Sales Report - Mr. Johann', to: '/reports/fixed' },
   { label: 'AR Reports', to: '/reports/ar' },
   { label: 'Manufacturing Quick Report', to: '/reports/manufacturing' },
+  { label: 'Inventory Quick Report', to: '/reports/inventory' },
   { label: 'Shared Reports', to: '/reports/shared' }]
 
 },

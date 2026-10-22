@@ -79,7 +79,7 @@ export function ReportWorkspace({
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [search, setSearch] = useState('');
-  /** Manufacturing Quick Report: the transaction type chosen in the Type drop-down ('' = All types). */
+  /** Manufacturing / Inventory Quick Report: the transaction type chosen in the Type drop-down ('' = All types). */
   const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
@@ -392,7 +392,7 @@ export function ReportWorkspace({
             emptyState :
 
             <>
-            <ReportHeading definition={definition} typeLabel={definition.dataset === 'mfgQuick' ? typeFilter : ''} />
+            <ReportHeading definition={definition} typeLabel={definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick' ? typeFilter : ''} />
             {pivot && pivot.pivotColumnCount > pivot.pivotColumnsShown &&
               <p className="border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-2xs text-amber-800" role="status">
                   The Columns fields have {pivot.pivotColumnCount.toLocaleString()} distinct values. Showing the first{' '}

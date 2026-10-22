@@ -1,0 +1,35 @@
+Txn Type codes in the ERP database, for the transaction names that share one header table.
+A code with no name yet shows the table's default type name in the report. To give it its own name, add the code in the TXN_NAMES list of the report's builder (backend/src/services),
+e.g. ['frDispHed', 'Dispatch - Walk In', 'DWI'], then run the command again.
+Codes matched automatically from dbo.fStockTxnDetails: 13 of 18 names.
+
+fGrnHed  (2 names: Good Receive Note | FOC In Entry)
+    code 11            2153 documents   e.g. GA/2605/0001   (no name yet)
+
+fInvrHed  (2 names: Inv Return with Inv = 24 | Inv Return)
+    code 24               2 documents   e.g. IGR/2609/001   -> Inv Return with Inv
+
+fDispHed  (3 names: Dispatch = 23 | Dispatch (Inv Ret) | Un Used Dispatch = 92)
+    code 23             266 documents   e.g. DP/2604/0001   -> Dispatch
+    code 92              30 documents   e.g. UDP/2604/001   -> Un Used Dispatch
+
+fIssHed  (2 names: Issue = 30 | Issue Note -Pipe = 57)
+    code 30            3758 documents   e.g. IS/2604/0001   -> Issue
+    code 32             272 documents   e.g. WS/2604/0001   (no name yet)
+    code 57              64 documents   e.g. PI/2604/0001   -> Issue Note -Pipe
+
+fIssRHed  (5 names: Issue Return = 31 | Issue Acceptance Note = 52 | Acceptance Note-Pipe = 58 | Acceptance Note-Waste = 59 | Un Used Product In Entry = 91)
+    code 31               7 documents   e.g. RI/2604/0001   -> Issue Return
+    code 33             265 documents   e.g. WA/2604/0002   (no name yet)
+    code 52             292 documents   e.g. ISA/2507/001   -> Issue Acceptance Note
+    code 58              49 documents   e.g. WA/2604/0011   -> Acceptance Note-Pipe
+    code 59              12 documents   e.g. WA/2604/0001   -> Acceptance Note-Waste
+    code 91               5 documents   e.g. IU/2604/0001   -> Un Used Product In Entry
+
+fAdjHed  (4 names: Adjustment - Add = 50 | Adjustment - Ded = 51 | Floor Adjustment - Add = 73 | Floor Adjustment - Ded)
+    code 14               1 documents   e.g. RRI/2609/001   (no name yet)
+    code 15              43 documents   e.g. FGA/2604/001   (no name yet)
+    code 50              62 documents   e.g. AA/2603/0002   -> Adjustment - Add
+    code 51              59 documents   e.g. AD/2604/0001   -> Adjustment - Ded
+    code 73               3 documents   e.g. AA/2605/0001   -> Floor Adjustment - Add
+

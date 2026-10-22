@@ -109,7 +109,7 @@ export interface SortRule {
 }
 
 /** The three curated datasets, or 'erpTable' = one real table of the connected ERP database (see sourceTable). */
-export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions' | 'mfgQuick' | 'erpTable';
+export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions' | 'mfgQuick' | 'inventoryQuick' | 'erpTable';
 
 export interface CalculatedField {
   key: string;

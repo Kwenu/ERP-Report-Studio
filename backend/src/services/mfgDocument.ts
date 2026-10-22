@@ -61,7 +61,19 @@ export const MFG_TABLES: Record<string, MfgTable> = {
   flmWstInHed: { title: 'Waste In - Lami' },
   fmSizTranHed: { title: 'Pipe Size Transfer', kg: 'TotWeight', pcs: 'TotQty' },
   fmPStTrnhed: { title: 'Site Transfer Entry-Pipe', kg: 'Qty', pcs: 'QtyPc' },
-  frDispHed: { title: 'Sample Gate Pass' }
+  frDispHed: { title: 'Sample Gate Pass' },
+  // Inventory Quick Report (stock / purchasing / sales documents) - their quantities sit on the detail lines
+  fPoHed: { title: 'Purchase Order' },
+  fGrnHed: { title: 'Good Receive Note' },
+  fGrnrHed: { title: 'GRN Return' },
+  fQuoHed: { title: 'Quotation' },
+  fOrdHed: { title: 'Sales Order' },
+  fInvHed: { title: 'Invoice' },
+  fInvrHed: { title: 'Inv Return' },
+  fDispHed: { title: 'Dispatch' },
+  fTranHed: { title: 'Transfer' },
+  fDamHed: { title: 'Damage Transfer' },
+  fMatRetHed: { title: 'Inter Location Transfer' }
 };
 
 const tableFor = (source: string): [string, MfgTable] | undefined =>

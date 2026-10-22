@@ -19,7 +19,7 @@ interface ReportControlsBarProps {
   requestedAt: Date;
   panelOpen: boolean;
   onOpenPanel: () => void;
-  /** Manufacturing Quick Report: the transaction types found in the period + the selected one ('' = All). */
+  /** Manufacturing / Inventory Quick Report: the transaction types found in the period + the selected one ('' = All). */
   typeOptions?: string[];
   typeFilter?: string;
   onTypeChange?: (value: string) => void;
@@ -121,7 +121,7 @@ export function ReportControlsBar({
             className={`${compactSelectClass} w-[140px]`}>
             
             <option value="">No grouping</option>
-            {definition.dataset === 'arSummary' || definition.dataset === 'arTransactions' || definition.dataset === 'mfgQuick' ?
+            {definition.dataset === 'arSummary' || definition.dataset === 'arTransactions' || definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick' ?
             groupOptionsFor(definition.dataset).map((o) =>
             <option key={o.key} value={o.key}>{o.label}</option>
             ) :
@@ -137,7 +137,7 @@ export function ReportControlsBar({
           </select>
         </div>
 
-        {definition.dataset === 'mfgQuick' && onTypeChange &&
+        {(definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick') && onTypeChange &&
         <div className="flex items-center gap-1">
             <span className={label}>Type</span>
             <select

@@ -392,8 +392,56 @@ export const manufacturingQuickReport: ReportDefinition = {
 /** Templates of the "Manufacturing Quick Report" menu entry. */
 export const mfgTemplates: ReportDefinition[] = [manufacturingQuickReport];
 
+/* ------------------------------------------------------------------ *
+ * Inventory Quick Report — the "Inventory Quick Report" menu entry,   *
+ * listed right below the Manufacturing Quick Report. Same layout, one *
+ * row per detail line of each stock / purchasing / sales transaction  *
+ * (Purchase Order, GRN, GRN Return, Quotation, Sales Order, Invoice,  *
+ * Dispatch, Issue, Transfer, Adjustment ...), read from the header    *
+ * and detail tables through the v_inventory_quick view. The Type      *
+ * drop-down filters the report by transaction; the Reference No opens *
+ * the transaction as a PDF.                                           *
+ * ------------------------------------------------------------------ */
+export const inventoryQuickReport: ReportDefinition = {
+  ...baseDefinition,
+  id: 'inventory-quick-report',
+  name: 'Inventory Quick Report',
+  description:
+  'Every inventory transaction of the period (purchase orders, GRNs and returns, quotations, sales orders, invoices, dispatches, issues, transfers, adjustments, acceptance notes ...), one row per detail line, with its item, machine and quantity, the From and To company, site, location and bin location, and the cost centre. Pick a transaction in the Type drop-down to see just that entry. Click the PDF icon next to a reference number to view that transaction.',
+  category: 'Inventory',
+  dataset: 'inventoryQuick',
+  dateFrom: defaultPeriod.from,
+  dateTo: defaultPeriod.to,
+  groupBy: null,
+  showSubtotals: true,
+  showGrandTotal: true,
+  sort: [{ key: 'date', label: 'Date', dir: 'asc' }],
+  columns: [
+  makeColumn('InventoryQuick.Type', 'type', 'Type', 'text', { width: 230, locked: true }),
+  makeColumn('InventoryQuick.ReferenceNo', 'reference', 'Reference No', 'text', { width: 160, locked: true }),
+  makeColumn('InventoryQuick.Date', 'date', 'Date', 'date', { width: 96, locked: true }),
+  makeColumn('InventoryQuick.ManualNo', 'manualNo', 'Manual No', 'text', { width: 110, locked: true }),
+  makeColumn('InventoryQuick.ItemCode', 'itemCode', 'Item code', 'text', { width: 110, locked: true }),
+  makeColumn('InventoryQuick.Name', 'itemName', 'Name', 'text', { width: 230, locked: true }),
+  makeColumn('InventoryQuick.Machine', 'machine', 'Machine', 'text', { width: 100, locked: true }),
+  makeColumn('InventoryQuick.Quantity', 'quantity', 'Quantity', 'decimal', { width: 110, locked: true, aggregation: 'sum' }),
+  makeColumn('InventoryQuick.FromCompany', 'fromCompany', 'From Company', 'text', { width: 110, locked: true }),
+  makeColumn('InventoryQuick.FromSite', 'fromSite', 'From Site', 'text', { width: 100, locked: true }),
+  makeColumn('InventoryQuick.FromLocation', 'fromLocation', 'From Location', 'text', { width: 110, locked: true }),
+  makeColumn('InventoryQuick.FromBin', 'fromBin', 'From Bin Location', 'text', { width: 120, locked: true }),
+  makeColumn('InventoryQuick.ToCompany', 'toCompany', 'To Company', 'text', { width: 110, locked: true }),
+  makeColumn('InventoryQuick.ToSite', 'toSite', 'To Site', 'text', { width: 100, locked: true }),
+  makeColumn('InventoryQuick.ToLocation', 'toLocation', 'To Location', 'text', { width: 110, locked: true }),
+  makeColumn('InventoryQuick.ToBin', 'toBin', 'To Bin Location', 'text', { width: 120, locked: true }),
+  makeColumn('InventoryQuick.CostCentre', 'costCentre', 'Cost Centre', 'text', { width: 110, locked: true })]
+
+};
+
+/** Templates of the "Inventory Quick Report" menu entry. */
+export const invTemplates: ReportDefinition[] = [inventoryQuickReport];
+
 export function getTemplate(id: string): ReportDefinition | undefined {
-  return fixedTemplates.find((t) => t.id === id) ?? arTemplates.find((t) => t.id === id) ?? mfgTemplates.find((t) => t.id === id);
+  return fixedTemplates.find((t) => t.id === id) ?? arTemplates.find((t) => t.id === id) ?? mfgTemplates.find((t) => t.id === id) ?? invTemplates.find((t) => t.id === id);
 }
 
 export function cloneDefinition(def: ReportDefinition): ReportDefinition {
@@ -460,6 +508,20 @@ export function groupOptionsFor(dataset: ReportDefinition['dataset']): {key: str
     { key: 'stage', label: 'Stage' },
     { key: 'location', label: 'Location' },
     { key: 'company', label: 'Company' },
+    { key: 'costCentre', label: 'Cost Centre' }];
+
+  }
+  if (dataset === 'inventoryQuick') {
+    return [
+    { key: 'type', label: 'Transaction Type' },
+    { key: 'itemName', label: 'Item' },
+    { key: 'machine', label: 'Machine' },
+    { key: 'fromCompany', label: 'From Company' },
+    { key: 'fromSite', label: 'From Site' },
+    { key: 'fromLocation', label: 'From Location' },
+    { key: 'toCompany', label: 'To Company' },
+    { key: 'toSite', label: 'To Site' },
+    { key: 'toLocation', label: 'To Location' },
     { key: 'costCentre', label: 'Cost Centre' }];
 
   }

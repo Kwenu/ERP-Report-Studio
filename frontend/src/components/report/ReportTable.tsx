@@ -204,8 +204,8 @@ export function ReportTable({
               docType={row.type === 'INV' ? undefined : String(row.type)} />
               </span> :
 
-          col.key === 'reference' && definition.dataset === 'mfgQuick' && row.reference ?
-          // Manufacturing Quick Report: the transaction behind the row as a PDF
+          col.key === 'reference' && (definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick') && row.reference ?
+          // Manufacturing / Inventory Quick Report: the transaction behind the row as a PDF
           <span className="flex items-center gap-1.5">
                 <span className="min-w-0 truncate">{formatCell(row, col)}</span>
                 <InvoicePdfButton

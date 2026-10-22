@@ -172,7 +172,7 @@ export const relationships: Relationship[] = [
 
 export const allFields: ErpField[] = erpTables.flatMap((t) => t.fields);
 
-export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions' | 'mfgQuick';
+export type DatasetId = 'salesLines' | 'paymentTxns' | 'openInvoices' | 'arSummary' | 'arTransactions' | 'mfgQuick' | 'inventoryQuick';
 
 export interface DatasetColumn {
   dataType: DataType;
@@ -356,6 +356,34 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       stage: { dataType: 'text', label: 'Stage' },
       location: { dataType: 'text', label: 'Location' },
       company: { dataType: 'text', label: 'Company' },
+      costCentre: { dataType: 'text', label: 'Cost Centre' }
+    }
+  },
+  // Inventory Quick Report: one row per detail line of each stock / purchasing / sales transaction (header + detail tables).
+  // The view is generated from the ERP database by `npm run erp:inv-view` (see src/services/invViewBuilder.ts).
+  inventoryQuick: {
+    id: 'inventoryQuick',
+    view: 'v_inventory_quick',
+    columns: {
+      lineId: { dataType: 'text', label: 'Line ID' },
+      type: { dataType: 'text', label: 'Type' },
+      txnType: { dataType: 'text', label: 'Txn Type Code' },
+      source: { dataType: 'text', label: 'Source Table' },
+      reference: { dataType: 'text', label: 'Reference No' },
+      date: { dataType: 'date', label: 'Date' },
+      manualNo: { dataType: 'text', label: 'Manual No' },
+      itemCode: { dataType: 'text', label: 'Item Code' },
+      itemName: { dataType: 'text', label: 'Name' },
+      machine: { dataType: 'text', label: 'Machine' },
+      quantity: { dataType: 'decimal', label: 'Quantity' },
+      fromCompany: { dataType: 'text', label: 'From Company' },
+      fromSite: { dataType: 'text', label: 'From Site' },
+      fromLocation: { dataType: 'text', label: 'From Location' },
+      fromBin: { dataType: 'text', label: 'From Bin Location' },
+      toCompany: { dataType: 'text', label: 'To Company' },
+      toSite: { dataType: 'text', label: 'To Site' },
+      toLocation: { dataType: 'text', label: 'To Location' },
+      toBin: { dataType: 'text', label: 'To Bin Location' },
       costCentre: { dataType: 'text', label: 'Cost Centre' }
     }
   }

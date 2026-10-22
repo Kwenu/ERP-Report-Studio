@@ -1,0 +1,170 @@
+Inventory Quick Report view: 17 transaction tables - 17 read their detail lines, 0 header only; no customer column in this report.
+5 transaction names that share a table still have no Txn Type code, so their documents show the table's default type name (see the txn-codes file next to the report).
+
+fPoHed  ->  fPoDet   [header + detail lines]
+      Item code      fPoDet.Itemcode
+      Name           fItems.ItemName
+      Quantity       fPoDet.Qty
+      To Company     fPoHed.ComCode
+      To Location    fPoHed.LocCode
+      Cost Centre    fPoHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fGrnHed  ->  fGrnDet   [header + detail lines]
+      Item code      fGrnDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fGrnDet.Qty
+      Machine        fGrnDet.machcode
+      To Company     fGrnHed.comcode
+      To Site        fGrnHed.SiteCode
+      To Location    fGrnHed.LocCode
+      Cost Centre    fGrnHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fGrnrHed  ->  fGrnrDet   [header + detail lines]
+      Item code      fGrnrDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fGrnrDet.Qty
+      From Company   fGrnrHed.comcode
+      From Site      fGrnrHed.SiteCode
+      From Location  fGrnrHed.LocCode (then fGrnrDet.LocCode)
+      Cost Centre    fGrnrHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fQuoHed  ->  fQuoDet   [header + detail lines]
+      Item code      fQuoDet.Itemcode
+      Name           fItems.ItemName
+      Quantity       fQuoDet.Qty
+      From Company   fQuoHed.ComCode
+      From Site      fQuoHed.sitecode
+      From Location  fQuoHed.LocCode
+      Cost Centre    fQuoHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fOrdHed  ->  fOrdDet   [header + detail lines]
+      Item code      fOrdDet.Itemcode
+      Name           fItems.ItemName
+      Quantity       fOrdDet.Qty
+      From Company   fOrdHed.comcode
+      From Site      fOrdHed.SiteCode
+      From Location  fOrdHed.LocCode
+      Cost Centre    fOrdHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fInvHed  ->  fInvDet   [header + detail lines]
+      Item code      fInvDet.Itemcode
+      Name           fItems.ItemName
+      Quantity       fInvDet.Qty
+      From Company   fInvHed.ComCode
+      From Site      fInvHed.SiteCode
+      From Location  fInvHed.LocCode
+      Cost Centre    fInvHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fInvrHed  ->  fInvrDet   [header + detail lines]
+      Item code      fInvrDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fInvrDet.Qty
+      To Company     fInvrHed.ComCode
+      To Site        fInvrHed.SiteCode
+      To Location    fInvrHed.LocCode
+      Cost Centre    fInvrHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fDispHed  ->  fDispDet   [header + detail lines]
+      Item code      fDispDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fDispDet.Qty
+      From Company   fDispHed.ComCode
+      From Site      fDispHed.SiteCode
+      From Location  fDispHed.LocCode
+      Cost Centre    fDispHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fIssHed  ->  fIssDet   [header + detail lines]
+      Item code      fIssDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fIssDet.Qty
+      Machine        fIssDet.machcode
+      From Company   fIssHed.ComCode
+      From Site      fIssHed.SiteCode (then fIssDet.SiteCode)
+      From Location  fIssHed.LocCode (then fIssDet.LocCode)
+      Cost Centre    fIssHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fIssRHed  ->  fIssRDet   [header + detail lines]
+      Item code      fIssRDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fIssRDet.Qty
+      To Company     fIssRHed.ComCode
+      To Site        fIssRHed.SiteCode
+      To Location    fIssRHed.LocCode
+      Cost Centre    fIssRHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fTranHed  ->  fTranDet   [header + detail lines]
+      Item code      fTranDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fTranDet.Qty
+      From Site      fTranDet.SiteCode
+      From Location  fTranDet.LocCode
+      Cost Centre    fTranHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fDamHed  ->  fDamDet   [header + detail lines]
+      Item code      fDamDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fDamDet.Qty
+      From Site      fDamDet.SiteCode
+      From Location  fDamDet.LocCode
+      Cost Centre    fDamHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fMatRetHed  ->  fMatRetDet   [header + detail lines]
+      Item code      fMatRetDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fMatRetDet.Qty
+      From Company   fMatRetHed.comcode
+      From Site      fMatRetDet.SiteCode
+      From Location  fMatRetDet.LocCode
+      Cost Centre    fMatRetHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fAdjHed  ->  fAdjDet   [header + detail lines]
+      Item code      fAdjDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fAdjDet.Qty
+      From Company   fAdjHed.comcode
+      From Site      fAdjHed.SiteCode
+      From Location  fAdjHed.LocCode
+      Cost Centre    fAdjHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+FiRIssHed  ->  FiRIssDet   [header + detail lines]
+      Item code      FiRIssDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       FiRIssDet.Qty
+      From Company   FiRIssHed.ComCode
+      From Site      FiRIssHed.SiteCode (then FiRIssDet.SiteCode)
+      From Location  FiRIssHed.LocCode (then FiRIssDet.LocCode)
+      Cost Centre    FiRIssHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fiAccpHed  ->  fiAccpDet   [header + detail lines]
+      Item code      fiAccpDet.ItemCode
+      Name           fItems.ItemName
+      Quantity       fiAccpDet.Qty
+      To Company     fiAccpHed.ComCode
+      To Site        fiAccpHed.SiteCode
+      To Location    fiAccpHed.LocCode
+      Cost Centre    fiAccpHed.CostCode
+      ! header column MachCode (Machine) not found - left empty
+      ! header column ItemCode (Item) not found - left empty
+fmRStTrnhed  ->  fmRStTrnDet   [header + detail lines]
+      Item code      fmRStTrnhed.ItemCode (then fmRStTrnDet.ItemCode)
+      Name           fItems.ItemName
+      Quantity       fmRStTrnDet.Qty (document total when it has no lines)
+      From Site      fmRStTrnDet.SiteCode
+      From Location  fmRStTrnhed.LocCode (then fmRStTrnDet.LocCode)
+      Cost Centre    fmRStTrnhed.CostCode
+      ! header column MachCode (Machine) not found - left empty

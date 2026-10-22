@@ -31,6 +31,14 @@ interface HeaderColumns {
   cost?: string;
 }
 
+/** Inventory layout only: where a document's stock moves (From / To company, site, location, bin location). */
+interface PlaceInfo {
+  /** the document moves stock between two places (header columns FSiteCode / TSiteCode ...) */
+  transfer?: boolean;
+  /** single-place documents: which side the document's own site / location is shown on (default 'from') */
+  side?: 'from' | 'to';
+}
+
 export interface MfgSource {
   /** header table (the document) and its detail table (the lines). Same name = the table has no separate lines. */
   hed: string;
@@ -40,6 +48,8 @@ export interface MfgSource {
   /** several transaction names share this header table: pick the name from TXN_NAMES by the Txn Type code */
   lookup: boolean;
   cols: HeaderColumns;
+  /** Inventory Quick Report only */
+  place?: PlaceInfo;
 }
 
 const S = (hed: string, det: string, type: string, cols: HeaderColumns, lookup = false): MfgSource => ({ hed, det, type, lookup, cols });
@@ -145,6 +155,21 @@ export interface DetailOverride {
   customer?: string;
   /** Quantity (Kg) = the detail's Kg column, or its Qty column on lines where the Kg column is empty / 0 */
   kgOrQty?: boolean;
+  /** Pieces = the detail's plain Qty column when no pieces column was found (stock documents: Qty = units, QtyKg = weight) */
+  pcsFromQty?: boolean;
+  /** Inventory layout: the detail column that holds the line's Quantity (default: Qty, AloQty, QtyKg ...) */
+  qty?: string;
+  /** Inventory layout: header columns for the From / To places, any of: fromCom, fromSite, fromLoc, fromBin, toCom, toSite, toLoc, toBin */
+  places?: Partial<Record<'fromCom' | 'fromSite' | 'fromLoc' | 'fromBin' | 'toCom' | 'toSite' | 'toLoc' | 'toBin', string>>;
+}
+
+/** What differs between the reports that share this engine (Manufacturing Quick Report, Inventory Quick Report). */
+export interface BranchOptions {
+  overrides: Record<string, DetailOverride>;
+  /** false = no Customer / Invoice No columns in the view (Inventory Quick Report) */
+  withCustomer: boolean;
+  /** 'inventory' = Quantity, From / To Company-Site-Location-Bin Location, Cost Centre (no Job No / Kg / Pieces / Stage) */
+  layout?: 'manufacturing' | 'inventory';
 }
 export const DETAIL_OVERRIDES: Record<string, DetailOverride> = {
   // Dispatch lines keep their quantity in Qty; the Kg column (QtyKG) is 0 on most of them.
@@ -166,6 +191,13 @@ const DET_FILL: Record<'job' | 'machine' | 'stage' | 'site' | 'loc' | 'com' | 'c
   com: ['ComCode'],
   cost: ['CostCode']
 };
+/** Inventory layout: detail / header column candidates. */
+const INV_QTY = ['Qty', 'AloQty', 'QtyKg', 'AloQtyKg', 'QtyPc', 'QtyW', 'TotQty', 'TotWeight', 'Weight', 'NetWeight', 'Pieces', 'NoOfPcs'];
+const INV_HDR_QTY = ['TotQty', 'Qty', 'TotWeight', 'QtyKg'];
+const BIN = ['BinCode', 'BinLocCode', 'BinLocation', 'BinLoc', 'BinNo', 'Bin'];
+type PlaceKey = 'Com' | 'Site' | 'Loc' | 'Bin';
+const PLACE_BASE: Record<PlaceKey, string[]> = { Com: ['ComCode'], Site: ['SiteCode'], Loc: ['LocCode'], Bin: BIN };
+const withPrefix = (key: PlaceKey, prefixes: string[]) => prefixes.flatMap((p) => PLACE_BASE[key].map((b) => `${p}${b}`));
 /** Columns that hold the customer code (matched on the header first, then on the detail table). */
 const CUSTOMER_COLUMNS = ['DebCode', 'DebtorCode', 'DebNo', 'CusCode', 'CustCode', 'CustomerCode', 'CusNo', 'CustNo', 'CustomerNo', 'CustomerId', 'DbCode'];
 /** The customer master (dbo.fDebtor): its key and name columns, found in the database by these names. */
@@ -235,18 +267,19 @@ export interface BuiltView {
   skipped: string[];
 }
 
-function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<string>): { sql: string; report: SourceReport } | { skipped: string } {
+export function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<string>, opts: BranchOptions = { overrides: DETAIL_OVERRIDES, withCustomer: true }): { sql: string; report: SourceReport } | { skipped: string } {
   const hedCols = catalog.get(src.hed.toLowerCase());
   if (!hedCols) return { skipped: `${src.hed}: table not found in this database - its transactions are left out of the report` };
 
   const notes: string[] = [];
   const from: Record<string, string> = {};
-  const override = Object.entries(DETAIL_OVERRIDES).find(([k]) => k.toLowerCase() === src.hed.toLowerCase())?.[1] ?? {};
+  const override = Object.entries(opts.overrides).find(([k]) => k.toLowerCase() === src.hed.toLowerCase())?.[1] ?? {};
 
   /** actual spelling of a header column, or null (with a note) when this database does not have it */
   const hcol = (name: string | undefined, label: string): string | null => {
     if (!name) return null;
-    const actual = hedCols.get(name.toLowerCase());
+    // "SiteCode|FSiteCode" = the first of these columns that exists on the header
+    const actual = name.split('|').map((n) => hedCols.get(n.trim().toLowerCase())).find(Boolean);
     if (!actual) notes.push(`header column ${name} (${label}) not found - left empty`);
     return actual ?? null;
   };
@@ -277,8 +310,8 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   // Invoice No: the header column named in the spec, or - when the data shows that the header's job column really holds
   // invoice numbers (see detectInvoiceHeaders) - that column. In that case the job number comes from the detail lines only.
   const invName = src.cols.inv ?? (invoiceHeaders.has(src.hed.toLowerCase()) ? src.cols.job : undefined);
-  const hInv = hcol(invName, 'Invoice No');
-  const hJob = src.cols.inv || (invName && invName === src.cols.job) ? null : hcol(src.cols.job, 'Job No');
+  const hInv = opts.withCustomer ? hcol(invName, 'Invoice No') : null;
+  const hJob = opts.withCustomer && (src.cols.inv || (invName && invName === src.cols.job)) ? null : hcol(src.cols.job, 'Job No');
   const hMachine = hcol(src.cols.machine, 'Machine');
   const hItem = hcol(src.cols.item, 'Item');
   const hKg = typeof src.cols.kg === 'string' ? hcol(src.cols.kg, 'Quantity (Kg)') : null;
@@ -296,11 +329,16 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   const dId = hasDetail ? pick([override.id, ...DET_ID]) : null;
   const dItem = hasDetail ? pick([override.item, 'ItemCode']) : null;
   const dKg = hasDetail
-    ? pick([override.kg, hKgName, ...DET_KG, ...(noHeaderQty ? ['Qty'] : [])], hPcsName ? [hPcsName.toLowerCase()] : [])
+    ? pick([override.kg, hKgName, ...DET_KG, ...(noHeaderQty && !override.pcsFromQty ? ['Qty'] : [])], hPcsName ? [hPcsName.toLowerCase()] : [])
     : null;
-  const dPcs = hasDetail
+  let dPcs = hasDetail
     ? pick([override.pcs, hPcsName, ...DET_PCS], hKgName ? [hKgName.toLowerCase()] : [])
     : null;
+  // stock documents: when the lines hold a weight column AND a plain Qty, Qty is the number of pieces / units
+  if (hasDetail && !dPcs && override.pcsFromQty && !hPcsName) {
+    const plainQty = pick(['Qty']);
+    if (plainQty && (!dKg || dKg.toLowerCase() !== plainQty.toLowerCase())) dPcs = plainQty;
+  }
   /** Quantity (Kg) falls back to the detail's Qty where its Kg column is empty / 0 (override kgOrQty) */
   const dQtyPlain = hasDetail ? pick(['Qty']) : null;
   const kgFallback = Boolean(override.kgOrQty && dQtyPlain && (!dKg || dKg.toLowerCase() !== dQtyPlain.toLowerCase()));
@@ -313,8 +351,43 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   const dCom = dFill('com');
   const dCost = dFill('cost');
 
+  /* ---- inventory layout: one Quantity, From / To places ---- */
+  const inventory = opts.layout === 'inventory';
+  const hq = (names: (string | undefined)[]): string | null => {
+    for (const n of names) {
+      const actual = n ? hedCols.get(n.toLowerCase()) : undefined;
+      if (actual) return actual;
+    }
+    return null;
+  };
+  const dQ = inventory && hasDetail ? pick([override.qty, ...INV_QTY]) : null;
+  const hQ = inventory ? hq(INV_HDR_QTY) : null;
+  type PlaceCols = { h: string | null; d: string | null };
+  const placeCols: Record<'from' | 'to', Record<PlaceKey, PlaceCols>> = {
+    from: { Com: { h: null, d: null }, Site: { h: null, d: null }, Loc: { h: null, d: null }, Bin: { h: null, d: null } },
+    to: { Com: { h: null, d: null }, Site: { h: null, d: null }, Loc: { h: null, d: null }, Bin: { h: null, d: null } }
+  };
+  if (inventory) {
+    const place = src.place ?? {};
+    (['Com', 'Site', 'Loc', 'Bin'] as PlaceKey[]).forEach((k) => {
+      const set = (side: 'from' | 'to', headerNames: (string | undefined)[], detailNames: string[]) => {
+        placeCols[side][k] = { h: hq(headerNames), d: hasDetail ? pick(detailNames) : null };
+      };
+      if (place.transfer) {
+        set('from', [override.places?.[`from${k}` as 'fromCom'], ...withPrefix(k, ['F', 'From', 'FRM'])], withPrefix(k, ['F', 'From', 'FRM']));
+        set('to', [override.places?.[`to${k}` as 'toCom'], ...withPrefix(k, ['T', 'To'])], withPrefix(k, ['T', 'To']));
+        // a transfer whose header has no From columns: the plain site / location is the From side
+        if (!placeCols.from[k].h && !placeCols.from[k].d) set('from', [override.places?.[`from${k}` as 'fromCom'], ...PLACE_BASE[k]], PLACE_BASE[k]);
+      } else {
+        const side = place.side ?? 'from';
+        set(side, [override.places?.[`${side}${k}` as 'fromCom'], ...PLACE_BASE[k]], PLACE_BASE[k]);
+      }
+    });
+  }
+  const anyPlaceDetail = (['from', 'to'] as const).some((sd) => (['Com', 'Site', 'Loc', 'Bin'] as PlaceKey[]).some((k) => placeCols[sd][k].d));
+
   /* ---- customer ---- */
-  const debtor = catalog.get(DEBTOR_TABLE.toLowerCase());
+  const debtor = opts.withCustomer ? catalog.get(DEBTOR_TABLE.toLowerCase()) : undefined;
   const pickFrom = (cols: Map<string, string> | undefined, names: (string | undefined)[]): string | null => {
     for (const n of names) {
       const actual = n ? cols?.get(n.toLowerCase()) : undefined;
@@ -325,17 +398,18 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   const debKey = pickFrom(debtor, DEBTOR_KEY);
   const debName = pickFrom(debtor, DEBTOR_NAME);
   const canJoinDebtor = Boolean(debKey && debName);
-  if (!debtor) notes.push(`customer master ${DEBTOR_TABLE} not found - the customer code is shown instead of the name`);
+  if (!opts.withCustomer) { /* this report has no customer column */ }
+  else if (!debtor) notes.push(`customer master ${DEBTOR_TABLE} not found - the customer code is shown instead of the name`);
   else if (!canJoinDebtor) notes.push(`${DEBTOR_TABLE} has no recognisable code / name columns (columns: ${[...debtor.values()].join(', ')}) - the customer code is shown instead of the name`);
 
   let custFrom: 'h' | 'd' | null = null;
-  let custCol: string | null = pickFrom(hedCols, [override.customer, ...CUSTOMER_COLUMNS]);
+  let custCol: string | null = opts.withCustomer ? pickFrom(hedCols, [override.customer, ...CUSTOMER_COLUMNS]) : null;
   if (custCol) custFrom = 'h';
-  else if (hasDetail) {
+  else if (hasDetail && opts.withCustomer) {
     custCol = pickFrom(detCols, [override.customer, ...CUSTOMER_COLUMNS]);
     if (custCol) custFrom = 'd';
   }
-  if (!custCol) {
+  if (!custCol && opts.withCustomer) {
     const like = [...hedCols.values()].filter((c) => CUSTOMER_LIKE.test(c)).map((c) => `${src.hed}.${c}`)
       .concat(detCols ? [...detCols.values()].filter((c) => CUSTOMER_LIKE.test(c)).map((c) => `${src.det}.${c}`) : []);
     notes.push(
@@ -345,7 +419,7 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   }
 
   const contributes = Boolean(
-    dItem || dKg || kgFallback || dPcs || dJob || dMachine || dStage || dSite || dLoc || dCom || dCost || custFrom === 'd'
+    dItem || dKg || kgFallback || dPcs || dJob || dMachine || dStage || dSite || dLoc || dCom || dCost || custFrom === 'd' || dQ || anyPlaceDetail
   );
   const active = hasDetail && contributes;
   if (hasDetail && !contributes) {
@@ -356,7 +430,8 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   /* a header quantity repeated on every line would be counted several times: show it on the first line only */
   const guardKg = D && !dKg && !kgFallback && Boolean(hKgExpr);
   const guardPcs = D && !dPcs && Boolean(hPcsExpr);
-  const needLineNo = D && (!dId || guardKg || guardPcs);
+  const guardQ = inventory && D && !dQ && Boolean(hQ);
+  const needLineNo = D && (!dId || guardKg || guardPcs || guardQ);
   const lineOne = `(d.${q(detKey ?? 'RefNo')} IS NULL OR d.[_ln] = 1)`;
 
   const idCol = D ? (dId ?? '_ln') : null;
@@ -390,8 +465,10 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
     }
     return numeric('NULL');
   };
-  const kgSql = quantity(hKgExpr, dKg, guardKg, 'Quantity (Kg)', kgFallback ? dQtyPlain : null);
-  const pcsSql = quantity(hPcsExpr, dPcs, guardPcs, 'Pieces');
+  const kgSql = inventory ? '' : quantity(hKgExpr, dKg, guardKg, 'Quantity (Kg)', kgFallback ? dQtyPlain : null);
+  const pcsSql = inventory ? '' : quantity(hPcsExpr, dPcs, guardPcs, 'Pieces');
+  const qtySql = inventory ? quantity(hQ ? `h.${q(hQ)}` : null, dQ, guardQ, 'Quantity') : '';
+  if (inventory && !dQ && !hQ) notes.push('no quantity column found - Quantity left empty (set qty: \'<column>\' in INV_OVERRIDES)');
 
   /* invoice number (header) */
   let invoiceNo = nvarchar('NULL');
@@ -427,14 +504,39 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   const type = src.lookup ?
     nvarchar(`COALESCE(m.name, N'${esc(src.type)}')`) :
     nvarchar(`N'${esc(src.type)}'`);
-  const body = [
+  /** one From / To place column: header value first, the detail line's value where the header has none */
+  const placeText = (side: 'from' | 'to', k: PlaceKey, label: string): string => {
+    const { h, d } = placeCols[side][k];
+    return text(h, d, `${side === 'from' ? 'From' : 'To'} ${label}`);
+  };
+  const body = inventory ? [
     `${lineId} AS [lineId],`,
     `${type} AS [type],`,
     `${nvarchar(txnTypeCol ? trimmed('h', txnTypeCol) : 'NULL')} AS [txnType],`,
     `${nvarchar(`'${esc(src.hed)}'`)} AS [source],`,
     `${nvarchar(trimmed('h', refNo))} AS [reference],`,
-    `${customer} AS [customer],`,
-    `${invoiceNo} AS [invoiceNo],`,
+    `CAST(h.${q(hedCols.get('txndate') ?? 'TxnDate')} AS date) AS [date],`,
+    `${nvarchar(hedCols.get('manuref') ? trimmed('h', hedCols.get('manuref')!) : 'NULL')} AS [manualNo],`,
+    `${itemCode} AS [itemCode],`,
+    `${itemName} AS [itemName],`,
+    `${text(hMachine, dMachine, 'Machine')} AS [machine],`,
+    `${qtySql} AS [quantity],`,
+    `${placeText('from', 'Com', 'Company')} AS [fromCompany],`,
+    `${placeText('from', 'Site', 'Site')} AS [fromSite],`,
+    `${placeText('from', 'Loc', 'Location')} AS [fromLocation],`,
+    `${placeText('from', 'Bin', 'Bin Location')} AS [fromBin],`,
+    `${placeText('to', 'Com', 'Company')} AS [toCompany],`,
+    `${placeText('to', 'Site', 'Site')} AS [toSite],`,
+    `${placeText('to', 'Loc', 'Location')} AS [toLocation],`,
+    `${placeText('to', 'Bin', 'Bin Location')} AS [toBin],`,
+    `${text(hCost, dCost, 'Cost Centre')} AS [costCentre]`
+  ] : [
+    `${lineId} AS [lineId],`,
+    `${type} AS [type],`,
+    `${nvarchar(txnTypeCol ? trimmed('h', txnTypeCol) : 'NULL')} AS [txnType],`,
+    `${nvarchar(`'${esc(src.hed)}'`)} AS [source],`,
+    `${nvarchar(trimmed('h', refNo))} AS [reference],`,
+    ...(opts.withCustomer ? [`${customer} AS [customer],`, `${invoiceNo} AS [invoiceNo],`] : []),
     `CAST(h.${q(hedCols.get('txndate') ?? 'TxnDate')} AS date) AS [date],`,
     `${text(hJob, dJob, 'Job No')} AS [jobNo],`,
     `${nvarchar(hedCols.get('manuref') ? trimmed('h', hedCols.get('manuref')!) : 'NULL')} AS [manualNo],`,
@@ -457,24 +559,44 @@ function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Set<strin
   };
 }
 
-/** Builds the whole view from what exists in the ERP database. */
-export function buildMfgView(catalog: Catalog, autoCodes: AutoCodes = new Map(), invoiceHeaders: Set<string> = new Set()): BuiltView {
+/** Everything that makes one "quick report" view: its transactions, their names, the view and the report's options. */
+export interface ViewConfig {
+  sources: MfgSource[];
+  names: [table: string, name: string, code?: string][];
+  viewName: string;
+  title: string;
+  command: string;
+  opts: BranchOptions;
+}
+
+export const MFG_CONFIG: ViewConfig = {
+  sources: MFG_SOURCES,
+  names: TXN_NAMES,
+  viewName: 'v_manufacturing_quick',
+  title: 'Manufacturing Quick Report',
+  command: 'npm run erp:mfg-view',
+  opts: { overrides: DETAIL_OVERRIDES, withCustomer: true }
+};
+
+/** Builds a whole view from what exists in the ERP database. */
+export function buildView(cfg: ViewConfig, catalog: Catalog, autoCodes: AutoCodes = new Map(), invoiceHeaders: Set<string> = new Set()): BuiltView {
   const branches: string[] = [];
   const report: SourceReport[] = [];
   const skipped: string[] = [];
-  MFG_SOURCES.forEach((src) => {
-    const built = buildBranch(src, catalog, invoiceHeaders);
+  cfg.sources.forEach((src) => {
+    const built = buildBranch(src, catalog, invoiceHeaders, cfg.opts);
     if ('skipped' in built) skipped.push(built.skipped);
     else {
       branches.push(built.sql);
       report.push(built.report);
     }
   });
-  if (!branches.length) throw new Error('None of the manufacturing header tables were found in this database.');
+  if (!branches.length) throw new Error(`None of the ${cfg.title} header tables were found in this database.`);
 
-  const txnRows = TXN_NAMES.map(([tbl, name, code]) => `    ('${esc(tbl)}', '${esc(code ?? autoCodes.get(codeKey(tbl, name)) ?? '?')}', N'${esc(name)}')`).join(',\n');
+  const txnRows = cfg.names.map(([tbl, name, code]) => `    ('${esc(tbl)}', '${esc(code ?? autoCodes.get(codeKey(tbl, name)) ?? '?')}', N'${esc(name)}')`).join(',\n');
+  const view = `dbo.${cfg.viewName}`;
   const createSql = [
-    'CREATE VIEW dbo.v_manufacturing_quick AS',
+    `CREATE VIEW ${view} AS`,
     'WITH txn AS (',
     '  SELECT tbl, code, name FROM (VALUES',
     txnRows,
@@ -482,33 +604,38 @@ export function buildMfgView(catalog: Catalog, autoCodes: AutoCodes = new Map(),
     ')',
     branches.join('\n\n  UNION ALL\n\n  ')
   ].join('\n');
-  const dropSql = `IF OBJECT_ID('dbo.v_manufacturing_quick', 'V') IS NOT NULL DROP VIEW dbo.v_manufacturing_quick;`;
+  const dropSql = `IF OBJECT_ID('${view}', 'V') IS NOT NULL DROP VIEW ${view};`;
 
   const script = [
-    '-- Manufacturing Quick Report view - GENERATED by `npm run erp:mfg-view` from the header AND detail tables of this database.',
-    '-- Do not edit by hand: change DETAIL_OVERRIDES in backend/src/services/mfgViewBuilder.ts and generate it again.',
+    `-- ${cfg.title} view - GENERATED by \`${cfg.command}\` from the header AND detail tables of this database.`,
+    '-- Do not edit by hand: change the overrides in the matching *ViewBuilder.ts (backend/src/services) and generate it again.',
     dropSql,
     'GO',
     createSql,
     ';',
     'GO',
     '',
-    'SELECT TOP 20 * FROM dbo.v_manufacturing_quick ORDER BY [date] DESC;',
+    `SELECT TOP 20 * FROM ${view} ORDER BY [date] DESC;`,
     ''
   ].join('\n');
 
   return { script, dropSql, createSql: `${createSql}\n;`, report, skipped };
 }
 
+/** Builds the Manufacturing Quick Report view. */
+export function buildMfgView(catalog: Catalog, autoCodes: AutoCodes = new Map(), invoiceHeaders: Set<string> = new Set()): BuiltView {
+  return buildView(MFG_CONFIG, catalog, autoCodes, invoiceHeaders);
+}
+
 /** Plain-text summary of what each transaction now reads (printed by the command and saved next to the SQL). */
-export function formatReport(built: BuiltView, autoCodes: AutoCodes = new Map()): string {
+export function formatReport(built: BuiltView, autoCodes: AutoCodes = new Map(), cfg: ViewConfig = MFG_CONFIG): string {
   const lines: string[] = [];
   const withLines = built.report.filter((r) => r.mode === 'lines');
-  const needCode = TXN_NAMES.filter(([t, n, code]) => !codeFor(t, n, code, autoCodes)).length;
+  const needCode = cfg.names.filter(([t, n, code]) => !codeFor(t, n, code, autoCodes)).length;
   const withCustomer = built.report.filter((r) => r.from.Customer).length;
   lines.push(
-    `Manufacturing Quick Report view: ${built.report.length} transaction tables - ${withLines.length} read their detail lines, ${built.report.length - withLines.length} header only; ${withCustomer} have a customer.`,
-    needCode ? `${needCode} transaction names that share a table still have no Txn Type code, so their documents show the table's default type name (see erp-mfg-txn-codes.txt).` : `All shared-table transaction names have a Txn Type code.`,
+    `${cfg.title} view: ${built.report.length} transaction tables - ${withLines.length} read their detail lines, ${built.report.length - withLines.length} header only; ${cfg.opts.withCustomer ? `${withCustomer} have a customer.` : 'no customer column in this report.'}`,
+    needCode ? `${needCode} transaction names that share a table still have no Txn Type code, so their documents show the table's default type name (see the txn-codes file next to the report).` : `All shared-table transaction names have a Txn Type code.`,
     ''
   );
   built.report.forEach((r) => {
@@ -522,17 +649,17 @@ export function formatReport(built: BuiltView, autoCodes: AutoCodes = new Map())
 
 /** For the tables shared by several transaction names: the Txn Type codes actually used in the database, with how many
  *  documents use each and one sample reference number (the prefix usually tells which name it is). */
-export async function describeTxnCodes(conn: ErpConnector, catalog: Catalog, autoCodes: AutoCodes = new Map(), masterNote = ''): Promise<string> {
+export async function describeTxnCodes(conn: ErpConnector, catalog: Catalog, autoCodes: AutoCodes = new Map(), masterNote = '', cfg: ViewConfig = MFG_CONFIG): Promise<string> {
   const out: string[] = ['Txn Type codes in the ERP database, for the transaction names that share one header table.',
-    "A code with no name yet shows the table's default type name in the report. To give it its own name, add the code in TXN_NAMES (mfgViewBuilder.ts),",
+    "A code with no name yet shows the table's default type name in the report. To give it its own name, add the code in the TXN_NAMES list of the report's builder (backend/src/services),",
     "e.g. ['frDispHed', 'Dispatch - Walk In', 'DWI'], then run the command again.", masterNote, ''];
-  const tables = [...new Set(MFG_SOURCES.filter((s) => s.lookup).map((s) => s.hed))];
+  const tables = [...new Set(cfg.sources.filter((s) => s.lookup).map((s) => s.hed))];
   for (const hed of tables) {
     const cols = catalog.get(hed.toLowerCase());
     const typeCol = cols?.get('txntype');
     const refCol = cols?.get('refno');
     if (!typeCol || !refCol) continue;
-    const names = TXN_NAMES.filter(([t]) => t.toLowerCase() === hed.toLowerCase());
+    const names = cfg.names.filter(([t]) => t.toLowerCase() === hed.toLowerCase());
     out.push(`${hed}  (${names.length} names: ${names.map(([, n, c]) => { const k = codeFor(hed, n, c, autoCodes); return k ? `${n} = ${k}` : n; }).join(' | ')})`);
     try {
       const { rows } = await conn.query(
@@ -570,9 +697,9 @@ const MASTER_NAME = ['TxnName', 'TxnDesc', 'TxnDescription', 'TypeName', 'TrnNam
  * (a transaction-type master), matches them with the names in TXN_NAMES (ignoring case and punctuation) and keeps only
  * codes that really occur on that header table. Names that cannot be matched are simply left out.
  */
-export async function resolveTxnCodes(conn: ErpConnector, catalog: Catalog): Promise<{ codes: AutoCodes; note: string }> {
+export async function resolveTxnCodes(conn: ErpConnector, catalog: Catalog, cfg: ViewConfig = MFG_CONFIG): Promise<{ codes: AutoCodes; note: string }> {
   const codes: AutoCodes = new Map();
-  const shared = [...new Set(MFG_SOURCES.filter((s) => s.lookup).map((s) => s.hed))];
+  const shared = [...new Set(cfg.sources.filter((s) => s.lookup).map((s) => s.hed))];
 
   // codes that occur on each shared header table
   const used = new Map<string, Set<string>>();
@@ -585,7 +712,7 @@ export async function resolveTxnCodes(conn: ErpConnector, catalog: Catalog): Pro
     } catch { /* ignore */ }
   }
 
-  const own = new Set(MFG_SOURCES.flatMap((s) => [s.hed, s.det]).map((t) => t.toLowerCase()));
+  const own = new Set(cfg.sources.flatMap((s) => [s.hed, s.det]).map((t) => t.toLowerCase()));
   const pickCol = (cols: Map<string, string>, names: string[]) => names.map((n) => cols.get(n.toLowerCase())).find(Boolean);
   const spelled = (t: string) => TABLE_SPELLING.get(catalog)?.get(t) ?? t;
   const candidates = [...catalog.entries()]
@@ -608,7 +735,7 @@ export async function resolveTxnCodes(conn: ErpConnector, catalog: Catalog): Pro
       });
       let score = 0;
       const map = new Map<string, string>();
-      TXN_NAMES.forEach(([tbl, name, explicit]) => {
+      cfg.names.forEach(([tbl, name, explicit]) => {
         if (explicit) return;
         const code = byName.get(normName(name));
         if (code && used.get(tbl.toLowerCase())?.has(code.toLowerCase())) {
@@ -622,7 +749,7 @@ export async function resolveTxnCodes(conn: ErpConnector, catalog: Catalog): Pro
 
   if (best && best.score >= 2) {
     best.map.forEach((v, k) => codes.set(k, v));
-    return { codes, note: `Codes matched automatically from dbo.${spelled(best.table)}: ${best.score} of ${TXN_NAMES.filter(([, , c]) => !c).length} names.` };
+    return { codes, note: `Codes matched automatically from dbo.${spelled(best.table)}: ${best.score} of ${cfg.names.filter(([, , c]) => !c).length} names.` };
   }
   return { codes, note: 'No transaction-type table matching the names was found, so no code could be matched automatically.' };
 }
@@ -722,9 +849,9 @@ export async function describeDispatchCoverage(conn: ErpConnector, catalog: Cata
 }
 
 /** After the view exists: every header document must appear in the view (compares document counts per source table). */
-export async function reconcileView(conn: ErpConnector, built: BuiltView): Promise<string[]> {
+export async function reconcileView(conn: ErpConnector, built: BuiltView, viewName = 'v_manufacturing_quick'): Promise<string[]> {
   const issues: string[] = [];
-  const { rows: viewRows } = await conn.query(`SELECT [source], COUNT(DISTINCT [reference]) AS docs, COUNT(*) AS lines FROM dbo.v_manufacturing_quick GROUP BY [source]`);
+  const { rows: viewRows } = await conn.query(`SELECT [source], COUNT(DISTINCT [reference]) AS docs, COUNT(*) AS lines FROM dbo.${q(viewName)} GROUP BY [source]`);
   const inView = new Map((viewRows as any[]).map((r) => [String(r.source).toLowerCase(), { docs: Number(r.docs), lines: Number(r.lines) }]));
   const heads = [...new Set(built.report.map((r) => r.header))];
   const { rows: headRows } = await conn.query(heads.map((h) => `SELECT '${esc(h)}' AS src, COUNT(*) AS n FROM dbo.${q(h)}`).join(' UNION ALL '));

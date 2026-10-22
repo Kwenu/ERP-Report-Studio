@@ -10,7 +10,7 @@ import { cloneDefinition, getTemplate } from '../data/templates';
 import { useApp } from '../contexts/AppContext';
 import type { ReportDefinition } from '../types/erp';
 
-export function ReportView({ mode, section = 'fixed', templateId }: {mode: 'template' | 'saved';section?: 'fixed' | 'ar' | 'mfg';templateId?: string;}) {
+export function ReportView({ mode, section = 'fixed', templateId }: {mode: 'template' | 'saved';section?: 'fixed' | 'ar' | 'mfg' | 'inv';templateId?: string;}) {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const { getReport, markViewed } = useApp();
@@ -107,7 +107,7 @@ export function ReportView({ mode, section = 'fixed', templateId }: {mode: 'temp
       <PageHeader
         compact
         title={definition.name}
-        breadcrumb={['Reports', isTemplate ? section === 'ar' ? 'AR Reports' : section === 'mfg' ? 'Manufacturing Quick Report' : 'Fixed Reports' : 'Saved Reports']}
+        breadcrumb={['Reports', isTemplate ? section === 'ar' ? 'AR Reports' : section === 'mfg' ? 'Manufacturing Quick Report' : section === 'inv' ? 'Inventory Quick Report' : 'Fixed Reports' : 'Saved Reports']}
         subtitle={definition.id === 'ar-customer-detail' && definition.subtitle ? `Customer: ${definition.subtitle}` : definition.description}
         actions={
         <div className="flex items-center gap-2">

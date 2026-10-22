@@ -84,7 +84,7 @@ const saveSchema = z.object({
   type: z.enum(['Fixed Template', 'Custom Report']).default('Custom Report'),
   templateId: z.string().optional(),
   // 'erpTable' = a report built on one real ERP table (its name rides along in the saved definition).
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick', 'erpTable']),
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick', 'inventoryQuick', 'erpTable']),
   // Everything else (columns, filters, sort, formatting…) rides along as-is.
   rest: z.record(z.any()).default({})
 });
@@ -197,7 +197,7 @@ reportsRouter.post(
  * live preview) against the real database and returns rows.
  * ------------------------------------------------------------------ */
 const queryBodySchema = z.object({
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick']),
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick', 'inventoryQuick']),
   columns: z
     .array(z.object({ key: z.string(), aggregation: z.enum(['sum', 'avg', 'count', 'min', 'max', 'none']).optional() }))
     .default([]),
@@ -235,11 +235,11 @@ const queryBodySchema = z.object({
  * POST /api/v1/reports/distinct-values
  * The distinct values of ONE column of a dataset (optionally within a
  * date range) — used to fill the "Type" drop-down of the Manufacturing
- * Quick Report. The column is whitelisted by the query builder, and the
+ * Quick and Inventory Quick Reports. The column is whitelisted by the query builder, and the
  * values are read from the whole period, not just the first 20,000 rows.
  * ------------------------------------------------------------------ */
 const distinctBodySchema = z.object({
-  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick']),
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick', 'inventoryQuick']),
   column: z.string().min(1),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional()
@@ -360,10 +360,12 @@ reportsRouter.post(
           }
           if (missing.length) {
             const steps = [
-              missing.some((v) => v !== 'v_manufacturing_quick') ?
+              missing.some((v) => v !== 'v_manufacturing_quick' && v !== 'v_inventory_quick') ?
                 'Run backend/db/erp_views.polydime.sql in SSMS on that database' : '',
               missing.includes('v_manufacturing_quick') ?
-                'Run `npm run erp:mfg-view -- --apply` in the backend folder (or run the db/erp_views.manufacturing.generated.sql it writes, in SSMS) to build the manufacturing view' : ''
+                'Run `npm run erp:mfg-view -- --apply` in the backend folder (or run the db/erp_views.manufacturing.generated.sql it writes, in SSMS) to build the manufacturing view' : '',
+              missing.includes('v_inventory_quick') ?
+                'Run `npm run erp:inv-view -- --apply` in the backend folder (or run the db/erp_views.inventory.generated.sql it writes, in SSMS) to build the inventory view' : ''
             ].filter(Boolean).join('. ');
             return res.status(502).json({
               error:

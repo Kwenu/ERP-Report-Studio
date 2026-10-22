@@ -54,3 +54,34 @@ No user input is concatenated into SQL. If a view/column is missing you get a cl
 - Named instances: `ERP_DB_SERVER=HOST\INSTANCE` (port ignored).
 - Azure SQL: `ERP_DB_ENCRYPT=true`.
 - API: `/auth`, `/datasources` (+`/:id/test`, `/schema/refresh`, `/data/refresh`), `/schema/*`, `/reports` (+`/query`), `/users`, `/audit`, `/schedules`.
+
+## Inventory Quick Report
+
+The **Inventory Quick Report** (Reports menu, directly below *Manufacturing Quick Report*) lists the stock, purchasing and
+sales transactions of `Inventory_Quick_Report_1.xlsx` - Purchase Order, GRN, FOC In Entry, GRN Return, Quotation, Sales Order,
+Invoice, Dispatch, Inv Return, Issue, Issue Return, Transfer, Damage Transfer, Inter Location Transfer, Adjustments,
+Issue / Acceptance Notes, Floor Adjustments, Site Transfer Entry-SF, Un Used Product In Entry, Un Used Dispatch.
+
+It works exactly like the Manufacturing Quick Report: a SQL Server view generated from the ERP's header + detail tables.
+
+```
+cd backend
+npm run erp:inv-view              # writes db/erp_views.inventory.generated.sql + erp-inv-view-report.txt + erp-inv-txn-codes.txt
+npm run erp:inv-view -- --apply   # ...and creates / replaces dbo.v_inventory_quick right away (needs a login that can CREATE VIEW)
+```
+
+Then press **Refresh** in the report. Notes:
+
+* `erp-inv-view-report.txt` shows, per transaction, which header / detail column feeds each report column. A line starting
+  with `!` means a table or column was not found - fix it in `INV_OVERRIDES` (`src/services/invViewBuilder.ts`) and run the command again.
+* Columns: Type, Reference No, Date, Manual No, Item code, Name, Machine, Quantity, From (Company, Site, Location, Bin Location),
+  To (Company, Site, Location, Bin Location), Cost Centre. *Quantity* is the detail line's Qty (Purchase Order: AloQty when it exists).
+* Transfer, Damage Transfer, Inter Location Transfer and Site Transfer Entry-SF fill both sides (header columns FSiteCode / TSiteCode,
+  FLocCode / TLocCode ...). Every other document has one place: shown under *To* for documents that bring stock in (PO, GRN,
+  Inv Return, Issue Return / Acceptance notes) and under *From* for the rest - change `side` per table in `INV_SOURCES` if needed.
+* Transactions that share one header table (GRN + FOC In Entry on `fGrnHed`, the four adjustments on `fAdjHed`, the Dispatch
+  variants on `fDispHed` ...) are told apart by their Txn Type code. The command finds the codes itself when the ERP has a
+  transaction-type table; otherwise add them in `INV_TXN_NAMES`, e.g. `['fGrnHed', 'FOC In Entry', 'FOC']` (the codes found in
+  the database are listed in `erp-inv-txn-codes.txt`).
+* The **Type** drop-down in the report filters by transaction (e.g. only GRN). It is applied in the database, so it stays complete
+  for periods with more than 20,000 rows. The Configure panel's filter builder and *Group by* work on every column as well.

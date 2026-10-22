@@ -69,9 +69,22 @@ function StudioRoutes({
           path="/reports/manufacturing"
           element={
             <ReportView
+              key="manufacturing"
               mode="template"
               section="mfg"
               templateId="manufacturing-quick-report"
+            />
+          }
+        />
+
+        <Route
+          path="/reports/inventory"
+          element={
+            <ReportView
+              key="inventory"
+              mode="template"
+              section="inv"
+              templateId="inventory-quick-report"
             />
           }
         />

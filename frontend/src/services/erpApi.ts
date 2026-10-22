@@ -318,7 +318,7 @@ export async function runQuery(definition: ReportDefinition, signal?: { cancelle
  */
 export async function fetchDatasetRows(
   definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo' | 'filters'>,
-  /** Manufacturing Quick Report only: limit the rows to ONE transaction type ('' / undefined = all types). */
+  /** Manufacturing / Inventory Quick Report only: limit the rows to ONE transaction type ('' / undefined = all types). */
   typeFilter?: string
 ): Promise<QueryResponse & { truncated: boolean }> {
   const result = await http<QueryResponse>('/reports/query', {
@@ -332,9 +332,9 @@ export async function fetchDatasetRows(
       (definition.filters ?? []).
       filter((f) => f.key === 'customerId' && f.operator === 'equals' && f.value).
       map((f) => ({ key: f.key, operator: f.operator, value: f.value, connector: 'AND' })) :
-      // Manufacturing Quick Report: the Type drop-down is applied by the database, so a type is complete
+      // Manufacturing / Inventory Quick Report: the Type drop-down is applied by the database, so a type is complete
       // even when the whole period holds more than the 20,000-row limit.
-      definition.dataset === 'mfgQuick' && typeFilter ?
+      (definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick') && typeFilter ?
       [{ key: 'type', operator: 'equals', value: typeFilter, connector: 'AND' }] :
       [],
       sort: [],

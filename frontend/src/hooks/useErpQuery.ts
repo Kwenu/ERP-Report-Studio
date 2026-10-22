@@ -97,7 +97,7 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
 }
 
 /**
- * The Manufacturing Quick Report's "Type" drop-down: every distinct transaction type found in the period
+ * The Manufacturing / Inventory Quick Report's "Type" drop-down: every distinct transaction type found in the period
  * (read from the whole period in the database, so the list is complete even when the rows are truncated).
  * Other reports get an empty list. Reloads when the period or the data source changes, or Refresh is pressed.
  */
@@ -106,7 +106,7 @@ export function useTypeOptions(definition: ReportDefinition, refreshKey: unknown
   const [options, setOptions] = useState<string[]>([]);
   /** The period the current `options` were loaded for (so callers know when the list is up to date). */
   const [loadedFor, setLoadedFor] = useState('');
-  const enabled = definition.dataset === 'mfgQuick';
+  const enabled = definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick';
   const periodKey = `${definition.dateFrom ?? ''}|${definition.dateTo ?? ''}`;
 
   useEffect(() => {
@@ -115,7 +115,7 @@ export function useTypeOptions(definition: ReportDefinition, refreshKey: unknown
       return undefined;
     }
     let cancelled = false;
-    fetchDistinctValues('mfgQuick', 'type', definition.dateFrom, definition.dateTo).
+    fetchDistinctValues(definition.dataset, 'type', definition.dateFrom, definition.dateTo).
     then((values) => {
       if (cancelled) return;
       setOptions(values);
@@ -129,7 +129,7 @@ export function useTypeOptions(definition: ReportDefinition, refreshKey: unknown
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, periodKey, activeSource.id, refreshKey]);
+  }, [enabled, definition.dataset, periodKey, activeSource.id, refreshKey]);
 
   return { options, upToDate: loadedFor === periodKey };
 }
