@@ -1,11 +1,11 @@
 import { PageHeader } from '../components/ui/PageHeader';
 import { ReportList } from '../components/report/ReportList';
 import { useApp } from '../contexts/AppContext';
-import { fixedTemplates } from '../data/templates';
+import { standardTemplates } from '../data/reportCatalog';
 
 export function Favorites() {
   const { savedReports, favorites } = useApp();
-  const all = [...fixedTemplates, ...savedReports];
+  const all = [...standardTemplates, ...savedReports];
   const starred = all.filter((r) => favorites.includes(r.id));
 
   return (

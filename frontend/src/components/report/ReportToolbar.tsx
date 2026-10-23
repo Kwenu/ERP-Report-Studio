@@ -15,6 +15,7 @@ import {
   StarIcon,
   CalendarClockIcon } from
 'lucide-react';
+import { cx } from '../../utils/ui';
 import { Button } from '../ui/Button';
 import type { ReportDefinition } from '../../types/erp';
 
@@ -162,7 +163,7 @@ export function ReportToolbar(props: ToolbarProps) {
           aria-pressed={props.isFavorite}
           onClick={props.onFavorite}>
           
-          <StarIcon className={icon} />
+          <StarIcon className={cx(icon, props.isFavorite && 'fill-amber-300 text-amber-300')} />
         </Button>
       </div>
     </div>);

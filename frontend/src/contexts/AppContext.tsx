@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import type {
   AuditEntry,
   ReportDefinition,
@@ -9,6 +10,7 @@ import { fetchCurrentUser, logout } from '../services/authApi';
 import { getAuthToken, UNAUTHORIZED_EVENT } from '../services/http';
 import { auditLog as seedAudit, scheduledReports as seedSchedules } from '../data/adminData';
 import { cloneDefinition, fixedTemplates, makeColumn } from '../data/templates';
+import { standardTemplates } from '../data/reportCatalog';
 
 const seedCustomReports: ReportDefinition[] = [
 {
@@ -62,6 +64,29 @@ const seedCustomReports: ReportDefinition[] = [
   lastRun: '2026-09-07T10:50:00Z'
 }];
 
+
+/* ---- what each person keeps between visits (favourites, recently viewed, saved reports) ---- */
+const storageKey = (email: string, name: string) => `erp-studio:${email.toLowerCase()}:${name}`;
+
+function readStored<T>(email: string, name: string): T | null {
+  try {
+    const raw = window.localStorage.getItem(storageKey(email, name));
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(email: string, name: string, value: unknown) {
+  try {
+    window.localStorage.setItem(storageKey(email, name), JSON.stringify(value));
+  } catch {
+    /* storage full or blocked - the app keeps working with the in-memory copy */
+  }
+}
+
+const DEFAULT_FAVORITES = ['open-invoices', 'custom-sales-analysis'];
+const DEFAULT_RECENT = ['sales-by-customer-detail', 'open-invoices', 'average-days-to-pay'];
 
 interface AppState {
   authenticated: boolean;
@@ -122,15 +147,31 @@ export function AppProvider({
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
   const [savedReports, setSavedReports] = useState<ReportDefinition[]>(seedCustomReports);
-  const [favorites, setFavorites] = useState<string[]>([
-  'open-invoices',
-  'custom-sales-analysis']
-  );
-  const [recentlyViewed, setRecentlyViewed] = useState<string[]>([
-  'sales-by-customer-detail',
-  'open-invoices',
-  'average-days-to-pay']
-  );
+  const [favorites, setFavorites] = useState<string[]>(DEFAULT_FAVORITES);
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>(DEFAULT_RECENT);
+
+  // Load this person's saved reports / favourites / recently viewed once they are signed in; keep saving them afterwards.
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!authenticated) {
+      setHydratedFor(null);
+      return;
+    }
+    const email = identity.email;
+    setSavedReports(readStored<ReportDefinition[]>(email, 'reports') ?? seedCustomReports);
+    setFavorites(readStored<string[]>(email, 'favorites') ?? DEFAULT_FAVORITES);
+    setRecentlyViewed(readStored<string[]>(email, 'recent') ?? DEFAULT_RECENT);
+    setHydratedFor(email);
+  }, [authenticated, identity.email]);
+  useEffect(() => {
+    if (hydratedFor === identity.email) writeStored(hydratedFor, 'reports', savedReports);
+  }, [savedReports, hydratedFor, identity.email]);
+  useEffect(() => {
+    if (hydratedFor === identity.email) writeStored(hydratedFor, 'favorites', favorites);
+  }, [favorites, hydratedFor, identity.email]);
+  useEffect(() => {
+    if (hydratedFor === identity.email) writeStored(hydratedFor, 'recent', recentlyViewed);
+  }, [recentlyViewed, hydratedFor, identity.email]);
   const [audit, setAudit] = useState<AuditEntry[]>(seedAudit);
   const [schedules, setSchedules] = useState<ScheduledReport[]>(seedSchedules);
 
@@ -199,14 +240,20 @@ export function AppProvider({
 
   const getReport = useCallback(
     (id: string) =>
-    savedReports.find((r) => r.id === id) ?? fixedTemplates.find((t) => t.id === id),
+    savedReports.find((r) => r.id === id) ?? standardTemplates.find((t) => t.id === id),
     [savedReports]
   );
 
+  const favoritesRef = useRef(favorites);
+  favoritesRef.current = favorites;
+  const savedRef = useRef(savedReports);
+  savedRef.current = savedReports;
+
   const toggleFavorite = useCallback((id: string) => {
-    setFavorites((prev) =>
-    prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
-    );
+    const adding = !favoritesRef.current.includes(id);
+    const name = savedRef.current.find((r) => r.id === id)?.name ?? standardTemplates.find((t) => t.id === id)?.name ?? 'Report';
+    setFavorites((prev) => prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]);
+    toast.success(adding ? `“${name}” added to favorites` : `“${name}” removed from favorites`);
   }, []);
 
   const markViewed = useCallback((id: string) => {

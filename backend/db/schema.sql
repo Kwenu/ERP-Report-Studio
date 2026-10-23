@@ -1,22 +1,4 @@
--- =====================================================================
--- ERP Report Studio — database schema
---
--- Two groups of tables live here:
---   1. APPLICATION tables (app_users, data_sources, reports, ...) — the
---      backend's own storage for the product itself.
---   2. DEMO ERP tables (erp_*) — a small stand-in "customer ERP database"
---      so the whole product can be run and tested end-to-end without a
---      real customer database. In production you point a data source at
---      the customer's real SQL Server / Postgres / MySQL instance instead
---      (see src/services/datasourceDrivers.ts) and re-map the three views
---      at the bottom of this file to that server's tables.
--- =====================================================================
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
--- ---------------------------------------------------------------------
--- 1. APPLICATION TABLES
--- ---------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS app_users (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,7 +21,6 @@ CREATE TABLE IF NOT EXISTS data_sources (
   database_name        TEXT NOT NULL,
   auth_method          TEXT NOT NULL CHECK (auth_method IN ('Windows Authentication', 'Database Authentication')),
   username             TEXT,
-  -- AES-256-GCM encrypted JSON blob { password } — never returned to the client.
   encrypted_credentials TEXT,
   status               TEXT NOT NULL DEFAULT 'Disconnected' CHECK (status IN ('Connected', 'Disconnected', 'Error', 'Testing')),
   is_primary           BOOLEAN NOT NULL DEFAULT false,
@@ -59,8 +40,6 @@ CREATE TABLE IF NOT EXISTS reports (
   type           TEXT NOT NULL DEFAULT 'Custom Report' CHECK (type IN ('Fixed Template', 'Custom Report')),
   template_id    TEXT,
   dataset        TEXT NOT NULL,
-  -- Full ReportDefinition (columns, filters, sort, calculated fields, formatting…) as JSON.
-  -- Columns that are useful to filter/sort on in SQL are also promoted above as real columns.
   definition     JSONB NOT NULL,
   created_by     UUID REFERENCES app_users(id),
   last_modified  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -107,10 +86,6 @@ CREATE TABLE IF NOT EXISTS scheduled_reports (
 CREATE INDEX IF NOT EXISTS idx_reports_owner ON reports(owner);
 CREATE INDEX IF NOT EXISTS idx_reports_visibility ON reports(visibility);
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp DESC);
-
--- ---------------------------------------------------------------------
--- 2. DEMO ERP TABLES  (stand-in customer database, "PolydimeERP")
--- ---------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS erp_customers (
   customer_id   SERIAL PRIMARY KEY,
@@ -184,16 +159,6 @@ CREATE TABLE IF NOT EXISTS erp_payments (
 CREATE INDEX IF NOT EXISTS idx_erp_invoices_customer ON erp_invoices(customer_id);
 CREATE INDEX IF NOT EXISTS idx_erp_invoice_lines_invoice ON erp_invoice_lines(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_erp_payments_customer ON erp_payments(customer_id);
-
--- ---------------------------------------------------------------------
--- 3. REPORT-ENGINE VIEWS
---
--- These flatten the relational ERP tables into the three column shapes
--- the frontend already knows how to render (see src/schema/metadata.ts
--- for the whitelist of columns exposed from each). Report definitions
--- reference a "dataset" (salesLines | paymentTxns | openInvoices) and
--- the query engine SELECTs from the matching view below.
--- ---------------------------------------------------------------------
 
 CREATE OR REPLACE VIEW v_sales_lines AS
 SELECT

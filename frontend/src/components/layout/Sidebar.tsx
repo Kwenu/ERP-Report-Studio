@@ -19,17 +19,21 @@ interface NavItem {
   label: string;
   to: string;
   icon: React.ReactNode;
+  /** colour of the icon while the item is not selected */
+  tint: string;
   children?: {label: string;to: string;}[];
 }
 
 const iconClass = 'h-4 w-4 shrink-0';
 
 const navItems: NavItem[] = [
-{ label: 'Dashboard', to: '/', icon: <LayoutDashboardIcon className={iconClass} /> },
+{ label: 'Dashboard', to: '/', icon: <LayoutDashboardIcon className={iconClass} />,
+  tint: 'text-sky-400' },
 {
   label: 'Reports',
   to: '/reports',
   icon: <FileTextIcon className={iconClass} />,
+  tint: 'text-rose-400',
   children: [
   { label: 'Sales Report - Mr. Johann', to: '/reports/fixed' },
   { label: 'AR Reports', to: '/reports/ar' },
@@ -38,15 +42,21 @@ const navItems: NavItem[] = [
   { label: 'Shared Reports', to: '/reports/shared' }]
 
 },
-{ label: 'Report Builder', to: '/builder', icon: <WrenchIcon className={iconClass} /> },
-{ label: 'Data Sources', to: '/data-sources', icon: <DatabaseIcon className={iconClass} /> },
-{ label: 'Data Refresh', to: '/data-refresh', icon: <RefreshCwIcon className={iconClass} /> },
-{ label: 'Favorites', to: '/favorites', icon: <StarIcon className={iconClass} /> },
-{ label: 'Scheduled Reports', to: '/scheduled', icon: <ClockIcon className={iconClass} /> },
+{ label: 'Report Builder', to: '/builder', icon: <WrenchIcon className={iconClass} />,
+  tint: 'text-violet-400' },
+{ label: 'Data Sources', to: '/data-sources', icon: <DatabaseIcon className={iconClass} />,
+  tint: 'text-teal-400' },
+{ label: 'Data Refresh', to: '/data-refresh', icon: <RefreshCwIcon className={iconClass} />,
+  tint: 'text-emerald-400' },
+{ label: 'Favorites', to: '/favorites', icon: <StarIcon className={iconClass} />,
+  tint: 'text-amber-400' },
+{ label: 'Scheduled Reports', to: '/scheduled', icon: <ClockIcon className={iconClass} />,
+  tint: 'text-blue-400' },
 {
   label: 'Administration',
   to: '/admin',
   icon: <ShieldIcon className={iconClass} />,
+  tint: 'text-slate-400',
   children: [
   { label: 'Users', to: '/admin/users' },
   { label: 'Roles & Permissions', to: '/admin/roles' },
@@ -97,7 +107,7 @@ export function Sidebar({
                     'text-slate-300 hover:bg-navy-800 hover:text-white'
                   )}>
                   
-                  {item.icon}
+                  <span className={cx('flex', sectionActive ? 'text-white' : item.tint)}>{item.icon}</span>
                   {!collapsed &&
                   <>
                       <span className="flex-1 truncate text-left">{item.label}</span>
@@ -149,8 +159,12 @@ export function Sidebar({
                 )
                 }>
                 
-                {item.icon}
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {({ isActive }) =>
+                <>
+                    <span className={cx('flex', isActive ? 'text-white' : item.tint)}>{item.icon}</span>
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </>
+                }
               </NavLink>
             </div>);
 

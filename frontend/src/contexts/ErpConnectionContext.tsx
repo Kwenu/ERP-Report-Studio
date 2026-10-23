@@ -15,6 +15,7 @@ import {
   listDataSources,
   getSourceSchema,
   listSourceTables,
+  refreshData,
   setPrimaryDataSource,
   type DataRefreshResult,
   type NewDataSource,
@@ -85,17 +86,60 @@ interface ErpConnectionState {
   schedule: RefreshSchedule;
   setSchedule: (schedule: RefreshSchedule) => void;
   nextScheduledRefresh: string;
+  /** Outcome of the last refresh the schedule ran by itself (null until one has run in this browser session). */
+  lastAutoRefresh: AutoRefreshOutcome | null;
   totalRecords: number;
+}
+
+export interface AutoRefreshOutcome {
+  at: string;
+  ok: boolean;
+  tables: number;
+  records: number;
+  error?: string;
 }
 
 const ErpConnectionContext = createContext<ErpConnectionState | null>(null);
 
-function computeNextRun(schedule: RefreshSchedule): string {
+const SCHEDULE_KEY = 'erp-studio:refresh-schedule';
+const LAST_AUTO_KEY = 'erp-studio:refresh-last-auto';
+const DEFAULT_SCHEDULE: RefreshSchedule = {
+  frequency: 'Daily',
+  time: '06:00',
+  timezone: 'Company timezone (Asia/Colombo, GMT+5:30)',
+  scope: 'All Tables',
+  tables: []
+};
+
+function readStoredSchedule(): RefreshSchedule {
+  try {
+    const raw = window.localStorage.getItem(SCHEDULE_KEY);
+    return raw ? { ...DEFAULT_SCHEDULE, ...(JSON.parse(raw) as Partial<RefreshSchedule>) } : DEFAULT_SCHEDULE;
+  } catch {
+    return DEFAULT_SCHEDULE;
+  }
+}
+
+/** When the schedule last came due (the latest daily / weekly slot that is not in the future), or null for Manual. */
+function lastDueTime(schedule: RefreshSchedule, nowMs: number): number | null {
+  if (schedule.frequency === 'Manual') return null;
+  const [hour, minute] = schedule.time.split(':').map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  const due = new Date(nowMs);
+  due.setHours(hour, minute, 0, 0);
+  if (due.getTime() > nowMs) due.setDate(due.getDate() - 1);
+  if (schedule.frequency === 'Weekly') {
+    while (due.getDay() !== 1) due.setDate(due.getDate() - 1);
+  }
+  return due.getTime();
+}
+
+function computeNextRun(schedule: RefreshSchedule, from: Date = new Date()): string {
   if (schedule.frequency === 'Manual') return 'Manual only — no automatic refresh';
   const [hour, minute] = schedule.time.split(':').map(Number);
-  const next = new Date();
+  const next = new Date(from);
   next.setHours(hour, minute, 0, 0);
-  if (next.getTime() <= Date.now()) next.setDate(next.getDate() + 1);
+  if (next.getTime() <= from.getTime()) next.setDate(next.getDate() + 1);
   if (schedule.frequency === 'Weekly') {
     while (next.getDay() !== 1) next.setDate(next.getDate() + 1);
   }
@@ -110,7 +154,7 @@ function computeNextRun(schedule: RefreshSchedule): string {
 }
 
 export function ErpConnectionProvider({ children }: {children: React.ReactNode;}) {
-  const { authenticated } = useApp();
+  const { authenticated, logAction } = useApp();
   // The bundled sample record is only a placeholder until the real list arrives from the backend.
   const [sources, setSources] = useState<DataSourceConnection[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
@@ -131,13 +175,48 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
     primaryKeys: 0,
     foreignKeys: 0
   });
-  const [schedule, setSchedule] = useState<RefreshSchedule>({
-    frequency: 'Daily',
-    time: '06:00',
-    timezone: 'Company timezone (Asia/Colombo, GMT+5:30)',
-    scope: 'All Tables',
-    tables: []
-  });
+  const [schedule, setScheduleState] = useState<RefreshSchedule>(readStoredSchedule);
+  const [lastAutoRefresh, setLastAutoRefresh] = useState<AutoRefreshOutcome | null>(null);
+
+  // A clock that ticks every 30 s: it keeps "Next scheduled refresh" correct and lets the schedule fire on time.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // When the schedule last ran in this browser. A fresh browser starts from "now", so it does not fire straight away.
+  const lastAutoRunRef = useRef<number>(0);
+  if (!lastAutoRunRef.current) {
+    let stored = 0;
+    try {
+      stored = Number(window.localStorage.getItem(LAST_AUTO_KEY)) || 0;
+    } catch {
+      /* ignore */
+    }
+    lastAutoRunRef.current = stored || Date.now();
+  }
+  const markAutoRun = useCallback((ms: number) => {
+    lastAutoRunRef.current = ms;
+    try {
+      window.localStorage.setItem(LAST_AUTO_KEY, String(ms));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setSchedule = useCallback(
+    (next: RefreshSchedule) => {
+      setScheduleState(next);
+      try {
+        window.localStorage.setItem(SCHEDULE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      markAutoRun(Date.now()); // a newly saved schedule first fires at its next slot
+    },
+    [markAutoRun]
+  );
 
   const activeSource =
   sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? noSource;
@@ -301,6 +380,46 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
     [patchActive]
   );
 
+  /* The schedule runs for real: when its slot has come (and the app is open) the selected tables are refreshed,
+   * the "Last Data Refresh" time and the table list are updated and the run is written to the audit log. */
+  const autoRunning = useRef(false);
+  useEffect(() => {
+    if (!authenticated || activeSourceId === NO_SOURCE_ID || autoRunning.current) return;
+    const due = lastDueTime(schedule, clock);
+    if (due === null || lastAutoRunRef.current >= due) return;
+    const tables = schedule.scope === 'Selected Tables' && schedule.tables.length ?
+    schedule.tables :
+    tableStates.map((t) => t.table);
+    if (!tables.length) return; // the table list has not loaded yet - try again on the next tick
+
+    autoRunning.current = true;
+    const sourceId = activeSourceId;
+    const sourceName = activeSource.name;
+    void (async () => {
+      try {
+        const result = await refreshData(sourceId, tables, 'Incremental', () => undefined);
+        applyDataRefresh(result);
+        setLastAutoRefresh({ at: result.completedAt, ok: true, tables: result.tables.length, records: result.recordsUpdated });
+        logAction(
+          `Scheduled data refresh completed — ${result.recordsUpdated.toLocaleString()} records across ${result.tables.length} tables`,
+          '—',
+          sourceName
+        );
+      } catch (err) {
+        setLastAutoRefresh({
+          at: new Date().toISOString(),
+          ok: false,
+          tables: tables.length,
+          records: 0,
+          error: err instanceof Error ? err.message : String(err)
+        });
+      } finally {
+        markAutoRun(Date.now()); // a failed run is retried at the next slot, not every 30 seconds
+        autoRunning.current = false;
+      }
+    })();
+  }, [clock, authenticated, activeSourceId, activeSource.name, schedule, tableStates, applyDataRefresh, logAction, markAutoRun]);
+
   const value = useMemo<ErpConnectionState>(
     () => ({
       sources,
@@ -344,7 +463,8 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
       lastRefreshResult,
       schedule,
       setSchedule,
-      nextScheduledRefresh: computeNextRun(schedule),
+      nextScheduledRefresh: computeNextRun(schedule, new Date(clock)),
+      lastAutoRefresh,
       totalRecords: tableStates.reduce((sum, t) => sum + t.records, 0)
     }),
     [
@@ -357,6 +477,9 @@ export function ErpConnectionProvider({ children }: {children: React.ReactNode;}
     applyDataRefresh,
     lastRefreshResult,
     schedule,
+    setSchedule,
+    clock,
+    lastAutoRefresh,
     patchActive,
     activeSourceId,
     sourcesLoading,

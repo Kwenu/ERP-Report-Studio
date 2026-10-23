@@ -34,7 +34,7 @@ export function Header() {
   const toggle = (menu: "bell" | "user" | "help") =>
     setOpenMenu((prev) => (prev === menu ? null : menu));
   return (
-    <header className="relative z-40 flex h-12 shrink-0 items-center gap-4 border-b border-navy-950 bg-navy-900 px-3">
+    <header className="relative z-40 flex h-12 shrink-0 items-center gap-4 border-b-2 border-accent-500 bg-navy-900 px-3">
       <Link to="/" className="flex shrink-0 items-center gap-2.5">
         <span className="flex h-8 items-center rounded bg-white px-1.5 shadow-sm">
           <img

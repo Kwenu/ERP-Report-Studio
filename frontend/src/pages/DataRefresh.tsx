@@ -40,7 +40,8 @@ export function DataRefresh() {
     reloadTables,
     schedule,
     setSchedule,
-    nextScheduledRefresh
+    nextScheduledRefresh,
+    lastAutoRefresh
   } = useErpConnection();
   const { currentUser, logAction } = useApp();
   const canRefresh = canDesign(currentUser.role);
@@ -125,7 +126,7 @@ export function DataRefresh() {
                 <dt className="text-2xs uppercase tracking-wide text-ink-500">
                   Last Data Refresh
                 </dt>
-                <dd className="tabular text-ink-900">
+                <dd className="tabular font-medium text-blue-700">
                   {formatDateTime(activeSource.lastDataRefresh)}
                 </dd>
               </div>
@@ -137,7 +138,7 @@ export function DataRefresh() {
                 <dt className="text-2xs uppercase tracking-wide text-ink-500">
                   Next scheduled refresh
                 </dt>
-                <dd className="tabular text-ink-900">{nextScheduledRefresh}</dd>
+                <dd className="tabular font-medium text-violet-700">{nextScheduledRefresh}</dd>
               </div>
             </dl>
 
@@ -380,10 +381,27 @@ export function DataRefresh() {
                 
                 Save Schedule
               </Button>
-              <p className="rounded border border-line bg-surface-muted px-2.5 py-2 text-2xs text-ink-500">
-                Next scheduled refresh:{' '}
-                <span className="font-medium text-ink-900">{nextScheduledRefresh}</span>
-              </p>
+              <div className="space-y-1.5 rounded border border-line bg-surface-muted px-2.5 py-2 text-2xs text-ink-500">
+                <p>
+                  Next scheduled refresh:{' '}
+                  <span className="font-medium text-ink-900">{nextScheduledRefresh}</span>
+                </p>
+                <p>
+                  Last data refresh:{' '}
+                  <span className="font-medium text-ink-900">{formatDateTime(activeSource.lastDataRefresh)}</span>
+                </p>
+                {lastAutoRefresh &&
+                <p className={lastAutoRefresh.ok ? 'text-emerald-700' : 'text-red-700'}>
+                    {lastAutoRefresh.ok ?
+                  `Last automatic refresh: ${formatDateTime(lastAutoRefresh.at)} · ${lastAutoRefresh.tables.toLocaleString()} tables` :
+                  `Automatic refresh failed at ${formatDateTime(lastAutoRefresh.at)}: ${lastAutoRefresh.error}`}
+                  </p>
+                }
+                <p className="border-t border-line pt-1.5">
+                  The schedule runs while ERP Report Studio is open in a browser. If it was closed at the scheduled
+                  time, the refresh runs when the app is opened next.
+                </p>
+              </div>
             </div>
           </Panel>
 
@@ -423,8 +441,8 @@ export function DataRefresh() {
               </dl> :
 
             <p className="px-4 py-6 text-center text-xs text-ink-500">
-                No refresh has been run in this session. The last scheduled extract finished
-                at {formatClock(activeSource.lastDataRefresh)}.
+                No refresh has been run in this session. The last data refresh finished on{' '}
+                {formatDateTime(activeSource.lastDataRefresh)}.
               </p>
             }
           </Panel>

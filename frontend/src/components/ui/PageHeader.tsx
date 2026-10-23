@@ -10,7 +10,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, breadcrumb, actions, compact }: PageHeaderProps) {
   if (compact) {
     return (
-      <header className="flex items-center justify-between gap-3 border-b border-line bg-white px-4 py-1.5">
+      <header className="flex items-center justify-between gap-3 border-b border-line border-l-[3px] border-l-accent-500 bg-gradient-to-r from-white via-white to-accent-50/50 px-4 py-1.5">
         <div className="flex min-w-0 items-baseline gap-2">
           {breadcrumb && breadcrumb.length > 0 &&
           <nav aria-label="Breadcrumb" className="shrink-0 text-2xs text-ink-500">
@@ -36,7 +36,7 @@ export function PageHeader({ title, subtitle, breadcrumb, actions, compact }: Pa
   }
 
   return (
-    <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line bg-white px-5 py-3">
+    <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line border-l-[3px] border-l-accent-500 bg-gradient-to-r from-white via-white to-accent-50/50 px-5 py-3">
       <div>
         {breadcrumb && breadcrumb.length > 0 &&
         <nav aria-label="Breadcrumb" className="mb-1 text-2xs text-ink-500">

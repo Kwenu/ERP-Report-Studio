@@ -20,7 +20,10 @@ export function Panel({
       
       {(title || actions) &&
       <header className="flex h-10 items-center justify-between border-b border-line bg-surface-muted px-3">
-          <h2 className="text-[13px] font-semibold text-ink-900">{title}</h2>
+          <h2 className="flex items-center gap-2 text-[13px] font-semibold text-ink-900">
+            <span className="h-3.5 w-[3px] shrink-0 rounded-full bg-accent-500" aria-hidden />
+            {title}
+          </h2>
           {actions && <div className="flex items-center gap-1.5">{actions}</div>}
         </header>
       }

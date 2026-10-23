@@ -98,14 +98,3 @@ JOIN dbo.Customers c              ON c.CustomerID = i.CustomerID
 LEFT JOIN dbo.SalesRepresentatives sr ON sr.SalesRepID = i.SalesRepID
 WHERE i.OpenBalance > 0 AND i.Status <> 'Void';
 GO
-
--- ---------------------------------------------------------------------
--- Read-only login for the backend (change the password!). The backend
--- only needs SELECT on the three views and on the catalogue.
--- ---------------------------------------------------------------------
--- CREATE LOGIN svc_reporting WITH PASSWORD = 'ChangeThisStrongPassword!1';
--- CREATE USER  svc_reporting FOR LOGIN svc_reporting;
--- GRANT SELECT ON dbo.v_sales_lines   TO svc_reporting;
--- GRANT SELECT ON dbo.v_payment_txns  TO svc_reporting;
--- GRANT SELECT ON dbo.v_open_invoices TO svc_reporting;
--- ALTER ROLE db_datareader ADD MEMBER svc_reporting;   -- optional: lets "Refresh data" count every table

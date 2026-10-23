@@ -7,6 +7,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { useApp } from '../../contexts/AppContext';
+import { reportPath, reportSection, type ReportSection } from '../../data/reportCatalog';
 import { relativeTime } from '../../utils/format';
 import { inputClass, cx } from '../../utils/ui';
 
@@ -51,12 +52,15 @@ export function ReportList({
     r.owner.toLowerCase().includes(query.toLowerCase())
   );
 
-  const openReport = (report: ReportDefinition) =>
-  navigate(
-    report.type === 'Fixed Template' ?
-    `/reports/fixed/${report.id}` :
-    `/reports/view/${report.id}`
-  );
+  // each built-in report opens under its own menu entry (Sales, AR, Manufacturing Quick, Inventory Quick)
+  const openReport = (report: ReportDefinition) => navigate(reportPath(report));
+  const sectionTone: Record<ReportSection, 'navy' | 'blue' | 'green' | 'amber' | 'violet' | 'teal'> = {
+    Sales: 'navy',
+    AR: 'amber',
+    Manufacturing: 'teal',
+    Inventory: 'violet',
+    Custom: 'blue'
+  };
 
   return (
     <div className="rounded border border-line bg-white shadow-panel">
@@ -140,7 +144,7 @@ export function ReportList({
                   <p className="truncate text-2xs text-ink-500">{report.description}</p>
                 </td>
                 <td className="px-3 py-1.5">
-                  <Badge tone={report.type === 'Fixed Template' ? 'navy' : 'blue'} className="whitespace-normal text-center leading-tight">
+                  <Badge tone={sectionTone[reportSection(report)]} className="whitespace-normal text-center leading-tight">
                     {report.type}
                   </Badge>
                 </td>
