@@ -9,6 +9,8 @@ interface ExportPayload {
   rows: Row[];
   grandTotals: Record<string, number | null>;
   grandCurrencyTotals?: CurrencyTotals;
+  /** Customer / Company / Type chosen in the controls bar (printed under the report title) */
+  scopeLines?: string[];
 }
 
 function download(filename: string, mime: string, content: string) {
@@ -27,12 +29,13 @@ function safeName(name: string) {
   return name.replace(/[^a-z0-9]+/gi, '_');
 }
 
-function headerLines(definition: ReportDefinition): string[][] {
+function headerLines(definition: ReportDefinition, scopeLines: string[] = []): string[][] {
   const lines: string[][] = [['Polydime'], [definition.name]];
   if (definition.subtitle) lines.push([definition.subtitle]);
   if (definition.hidePeriod) lines.push([`As at ${formatDate(todayIso())}`]);else
   if (definition.dateFrom && definition.dateTo)
   lines.push([`${formatDate(definition.dateFrom)} - ${formatDate(definition.dateTo)}`]);
+  scopeLines.forEach((l) => lines.push([l]));
   if (definition.basis) lines.push([`Report Basis: ${definition.basis}`]);
   definition.filters.forEach((f) =>
   lines.push([`Filter: ${f.label} ${f.operator} ${f.value}${f.value2 ? ` and ${f.value2}` : ''}`])
@@ -82,7 +85,7 @@ function bodyMatrix(payload: ExportPayload): string[][] {
 }
 
 export function exportCsv(payload: ExportPayload) {
-  const matrix = [...headerLines(payload.definition), ...bodyMatrix(payload)];
+  const matrix = [...headerLines(payload.definition, payload.scopeLines), ...bodyMatrix(payload)];
   const csv = matrix.
   map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).
   join('\n');
@@ -91,7 +94,7 @@ export function exportCsv(payload: ExportPayload) {
 
 export function exportExcel(payload: ExportPayload) {
   const matrix = bodyMatrix(payload);
-  const headRows = headerLines(payload.definition).
+  const headRows = headerLines(payload.definition, payload.scopeLines).
   map(
     (line) =>
     `<tr><td colspan="${payload.columns.length}" style="font-weight:bold">${line[0] ?? ''}</td></tr>`

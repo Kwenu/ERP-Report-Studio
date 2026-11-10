@@ -9,6 +9,10 @@ function describe(rule: FilterRule): string {
   rule.dataType === 'date' ? formatDate(rule.value2 ?? '') : rule.value2;
   if (rule.operator === 'is between') return `${rule.label} is between ${value} and ${value2}`;
   if (rule.operator === 'is empty') return `${rule.label} is empty`;
+  if (rule.operator === 'is one of') {
+    const count = rule.value.split('\u0001').filter(Boolean).length;
+    return `${rule.label} is one of ${count} selected`;
+  }
   return `${rule.label} ${rule.operator} ${value}`;
 }
 

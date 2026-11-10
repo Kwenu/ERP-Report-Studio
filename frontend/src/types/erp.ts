@@ -89,7 +89,9 @@ export type FilterOperator =
 'less than' |
 'on or after' |
 'on or before' |
-'is empty';
+'is empty' |
+/** The value holds several values separated by IN_SEPARATOR (used by the multi-customer AR details). */
+'is one of';
 
 export interface FilterRule {
   id: string;

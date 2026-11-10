@@ -214,7 +214,8 @@ const queryBodySchema = z.object({
           'less than',
           'on or after',
           'on or before',
-          'is empty'
+          'is empty',
+          'is one of'
         ]),
         value: z.string().optional(),
         value2: z.string().optional(),
@@ -226,6 +227,8 @@ const queryBodySchema = z.object({
   groupBy: z.string().nullable().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
+  // "Search within report": matched against every column of the dataset, over the whole period.
+  search: z.string().max(200).optional(),
   page: z.number().optional(),
   pageSize: z.number().optional(),
   reportId: z.string().optional() // when set, updates the report's last_run timestamp
@@ -320,7 +323,9 @@ reportsRouter.post(
     let rowsResult, countResult;
     for (let attempt = 0; ; attempt += 1) {
       try {
-        built = buildReportQuery({ ...input, columns: wantedColumns(), dialect: conn.dialect });
+        // The search looks in every column of the dataset (shown or not), except the ones this view does not have yet.
+        const searchColumns = Object.keys(DATASETS[input.dataset]?.columns ?? {}).filter((key) => !skipped.has(key));
+        built = buildReportQuery({ ...input, columns: wantedColumns(), searchColumns, dialect: conn.dialect });
       } catch (err) {
         if (err instanceof QueryValidationError) {
           return res.status(400).json({ error: err.message });

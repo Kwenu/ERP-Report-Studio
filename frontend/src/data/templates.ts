@@ -304,7 +304,12 @@ export const arCustomerDetailReport: ReportDefinition = {
   groupBy: null,
   showSubtotals: true,
   showGrandTotal: false,
-  sort: [{ key: 'date', label: 'Date', dir: 'asc' }],
+  // Customer by customer (all documents of one customer together), each customer's documents oldest first.
+  sort: [
+  { key: 'name', label: 'Customer Name', dir: 'asc' },
+  { key: 'customerId', label: 'Customer Code', dir: 'asc' },
+  { key: 'date', label: 'Date', dir: 'asc' }],
+
   columns: [
   makeColumn('ARTransactions.Type', 'type', 'Type', 'text', { width: 64, locked: true, align: 'center' }),
   makeColumn('ARTransactions.Date', 'date', 'Date', 'date', { width: 96, locked: true }),
@@ -367,7 +372,11 @@ export const manufacturingQuickReport: ReportDefinition = {
   groupBy: null,
   showSubtotals: true,
   showGrandTotal: true,
-  sort: [{ key: 'date', label: 'Date', dir: 'asc' }],
+    // Customer by customer (all documents of one customer together), each customer's documents oldest first.
+  sort: [
+  { key: 'name', label: 'Customer Name', dir: 'asc' },
+  { key: 'customerId', label: 'Customer Code', dir: 'asc' },
+  { key: 'date', label: 'Date', dir: 'asc' }],
   columns: [
   makeColumn('MfgQuick.Type', 'type', 'Type', 'text', { width: 230, locked: true }),
   makeColumn('MfgQuick.ReferenceNo', 'reference', 'Reference No', 'text', { width: 160, locked: true }),

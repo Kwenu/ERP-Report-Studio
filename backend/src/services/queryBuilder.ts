@@ -28,7 +28,14 @@ export type FilterOperator =
   | 'less than'
   | 'on or after'
   | 'on or before'
-  | 'is empty';
+  | 'is empty'
+  | 'is one of';
+
+/** Separator of the values of an "is one of" filter (kept inside the single `value` string). */
+export const IN_SEPARATOR = '\u0001';
+/** SQL Server allows 2100 parameters per query; leave room for the date, paging and search parameters. */
+const MAX_IN_VALUES = 1000;
+const MAX_SEARCH_TERMS = 8;
 
 export interface FilterRuleInput {
   key: string;
@@ -59,6 +66,13 @@ export interface ReportQueryInput {
   dateFrom?: string;
   dateTo?: string;
   dateKey?: string; // defaults to "date" when dateFrom/dateTo are supplied
+  /**
+   * "Search within report": free text matched against EVERY column of the dataset (not only the columns shown),
+   * over the whole period. Several words must all be found (each in any column).
+   */
+  search?: string;
+  /** Columns the search looks in (defaults to every column of the dataset). Lets the caller skip columns the view lacks. */
+  searchColumns?: string[];
   page?: number;
   pageSize?: number;
   dialect?: Dialect; // defaults to 'postgres'
@@ -180,6 +194,19 @@ export function buildReportQuery(input: ReportQueryInput): BuiltQuery {
           ? `${dateCol(col, dataType)} <> ${pushDate(f.value)}`
           : `LOWER(${asText(col)}) <> LOWER(${push(f.value)})`;
         break;
+      case 'is one of': {
+        const values = String(f.value ?? '')
+          .split(IN_SEPARATOR)
+          .map((v) => v.trim())
+          .filter(Boolean);
+        if (values.length > MAX_IN_VALUES) {
+          throw new QueryValidationError(`Too many values selected for "${f.key}" (maximum ${MAX_IN_VALUES}).`);
+        }
+        clause = values.length
+          ? `LOWER(${asText(col)}) IN (${values.map((v) => `LOWER(${push(v)})`).join(', ')})`
+          : '1=0';
+        break;
+      }
       case 'contains':
         clause = mssql
           ? `LOWER(${asText(col)}) LIKE LOWER(${push(`%${f.value}%`)})`
@@ -226,6 +253,38 @@ export function buildReportQuery(input: ReportQueryInput): BuiltQuery {
     }
   });
   if (filterClause) whereParts.push(filterClause);
+
+  // ---- Search within report: every word must appear in at least one column of the row ----
+  const searchTerms = (input.search ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, MAX_SEARCH_TERMS);
+  if (searchTerms.length) {
+    const searchKeys = (input.searchColumns?.length ? input.searchColumns : Object.keys(dataset.columns)).filter((key) =>
+      Object.prototype.hasOwnProperty.call(dataset.columns, key)
+    );
+    // What a column looks like to the search. Dates are searchable the way they are written on screen (dd/mm/yyyy) and as yyyy-mm-dd.
+    const searchable = (key: string): string[] => {
+      const col = q(key);
+      const type = dataset.columns[key].dataType;
+      if (type === 'date' || type === 'datetime') {
+        return mssql
+          ? [`CONVERT(NVARCHAR(10), ${col}, 23)`, `CONVERT(NVARCHAR(10), ${col}, 103)`]
+          : [`to_char(${col}, 'YYYY-MM-DD')`, `to_char(${col}, 'DD/MM/YYYY')`];
+      }
+      return [asText(col)];
+    };
+    const expressions = searchKeys.flatMap(searchable);
+    if (expressions.length) {
+      searchTerms.forEach((term) => {
+        // % _ [ and \ are literal characters when typed into the search box
+        const pattern = `%${term.toLowerCase().replace(/[\\%_[]/g, (ch) => `\\${ch}`)}%`;
+        const ph = push(pattern);
+        whereParts.push(`(${expressions.map((expr) => `LOWER(${expr}) LIKE ${ph} ESCAPE '\\'`).join(' OR ')})`);
+      });
+    }
+  }
 
   const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
 

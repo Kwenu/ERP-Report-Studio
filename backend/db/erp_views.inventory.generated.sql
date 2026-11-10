@@ -31,6 +31,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fPoHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[Itemcode]) AS nvarchar(200)) AS [itemCode],
@@ -58,6 +59,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fGrnHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -86,6 +88,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fGrnrHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -113,6 +116,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fQuoHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(COALESCE(NULLIF(RTRIM(deb.[DebName]), ''), RTRIM(h.[DebCode])) AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[Itemcode]) AS nvarchar(200)) AS [itemCode],
@@ -130,6 +134,7 @@ SELECT
     CAST(RTRIM(h.[CostCode]) AS nvarchar(200)) AS [costCentre]
   FROM dbo.[fQuoHed] h
   LEFT JOIN dbo.[fQuoDet] d ON d.[RefNo] = h.[RefNo]
+  LEFT JOIN dbo.[fDebtor] deb ON deb.[DebCode] = h.[DebCode]
   LEFT JOIN dbo.fItems it ON it.ItemCode = d.[Itemcode]
 
   UNION ALL
@@ -140,6 +145,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fOrdHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(COALESCE(NULLIF(RTRIM(deb.[DebName]), ''), RTRIM(h.[DebCode])) AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[Itemcode]) AS nvarchar(200)) AS [itemCode],
@@ -157,6 +163,7 @@ SELECT
     CAST(RTRIM(h.[CostCode]) AS nvarchar(200)) AS [costCentre]
   FROM dbo.[fOrdHed] h
   LEFT JOIN dbo.[fOrdDet] d ON d.[RefNo] = h.[RefNo]
+  LEFT JOIN dbo.[fDebtor] deb ON deb.[DebCode] = h.[DebCode]
   LEFT JOIN dbo.fItems it ON it.ItemCode = d.[Itemcode]
 
   UNION ALL
@@ -167,6 +174,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fInvHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(COALESCE(NULLIF(RTRIM(deb.[DebName]), ''), RTRIM(h.[DebCode])) AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[Itemcode]) AS nvarchar(200)) AS [itemCode],
@@ -184,6 +192,7 @@ SELECT
     CAST(RTRIM(h.[CostCode]) AS nvarchar(200)) AS [costCentre]
   FROM dbo.[fInvHed] h
   LEFT JOIN dbo.[fInvDet] d ON d.[RefNo] = h.[RefNo]
+  LEFT JOIN dbo.[fDebtor] deb ON deb.[DebCode] = h.[DebCode]
   LEFT JOIN dbo.fItems it ON it.ItemCode = d.[Itemcode]
 
   UNION ALL
@@ -194,6 +203,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fInvrHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(COALESCE(NULLIF(RTRIM(deb.[DebName]), ''), RTRIM(h.[DebCode])) AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -211,6 +221,7 @@ SELECT
     CAST(RTRIM(h.[CostCode]) AS nvarchar(200)) AS [costCentre]
   FROM dbo.[fInvrHed] h
   LEFT JOIN dbo.[fInvrDet] d ON d.[RefNo] = h.[RefNo]
+  LEFT JOIN dbo.[fDebtor] deb ON deb.[DebCode] = h.[DebCode]
   LEFT JOIN dbo.fItems it ON it.ItemCode = d.[ItemCode]
   LEFT JOIN txn m ON m.tbl = 'fInvrHed' AND m.code = RTRIM(h.[TxnType])
 
@@ -222,6 +233,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fDispHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(COALESCE(NULLIF(RTRIM(deb.[DebName]), ''), RTRIM(h.[DebCode])) AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -239,6 +251,7 @@ SELECT
     CAST(RTRIM(h.[CostCode]) AS nvarchar(200)) AS [costCentre]
   FROM dbo.[fDispHed] h
   LEFT JOIN dbo.[fDispDet] d ON d.[RefNo] = h.[RefNo]
+  LEFT JOIN dbo.[fDebtor] deb ON deb.[DebCode] = h.[DebCode]
   LEFT JOIN dbo.fItems it ON it.ItemCode = d.[ItemCode]
   LEFT JOIN txn m ON m.tbl = 'fDispHed' AND m.code = RTRIM(h.[TxnType])
 
@@ -250,6 +263,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fIssHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -278,6 +292,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fIssRHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -306,6 +321,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fTranHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -333,6 +349,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fDamHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -360,6 +377,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fMatRetHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -387,6 +405,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fAdjHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -415,6 +434,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('FiRIssHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -442,6 +462,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fiAccpHed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(RTRIM(d.[ItemCode]) AS nvarchar(200)) AS [itemCode],
@@ -469,6 +490,7 @@ SELECT
     CAST(RTRIM(h.[TxnType]) AS nvarchar(200)) AS [txnType],
     CAST('fmRStTrnhed' AS nvarchar(200)) AS [source],
     CAST(RTRIM(h.[RefNo]) AS nvarchar(200)) AS [reference],
+    CAST(NULL AS nvarchar(200)) AS [customer],
     CAST(h.[TxnDate] AS date) AS [date],
     CAST(RTRIM(h.[ManuRef]) AS nvarchar(200)) AS [manualNo],
     CAST(COALESCE(NULLIF(RTRIM(h.[ItemCode]), ''), NULLIF(RTRIM(d.[ItemCode]), '')) AS nvarchar(200)) AS [itemCode],

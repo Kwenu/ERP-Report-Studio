@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { QueryResultMeta, ReportDefinition, Row } from '../types/erp';
-import { fetchDatasetRows, fetchDistinctValues, fetchTableRows } from '../services/erpApi';
+import { fetchDatasetRows, fetchDistinctValues, fetchScopeOptions, fetchTableRows } from '../services/erpApi';
 import { useErpConnection } from '../contexts/ErpConnectionContext';
+import { customerCodesOf, emptyScope, hasCompanyFilter, hasCustomerFilter, type ReportScope } from '../utils/scope';
 
 const SEP = '\u0001';
 
@@ -31,9 +32,9 @@ function neededKeys(def: ReportDefinition): string[] {
  * Standard reports read one of the curated datasets. Report Builder reports read just the columns they use
  * from one real ERP table. Filters / grouping / pivoting / totals are applied afterwards by the report engine.
  */
-export function useErpQuery(definition: ReportDefinition, dataSourceName: string, typeFilter = '') {
+export function useErpQuery(definition: ReportDefinition, dataSourceName: string, typeFilter = '', scope: ReportScope = emptyScope, search = '') {
   const { activeSource } = useErpConnection();
-  const [rows, setRows] = useState<Row[] | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string; rows: Row[] } | null>(null);
   const [meta, setMeta] = useState<QueryResultMeta>({
     state: 'idle',
     records: 0,
@@ -44,18 +45,22 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
   const [nonce, setNonce] = useState(0);
 
   const isTable = definition.dataset === 'erpTable';
-  /** The customer an AR details report is limited to — changing it reloads the data. */
+  /** The customer(s) an AR details report is limited to — changing them reloads the data. */
   const customerKey = definition.dataset === 'arTransactions' ?
-  definition.filters.filter((f) => f.key === 'customerId').map((f) => `${f.operator}:${f.value}`).join('|') :
+  customerCodesOf(definition.filters).join('|') :
   '';
+  /** Dataset reports search in the database (every column, the whole period); Report Builder table reports search in the browser. */
+  const serverSearch = isTable ? '' : search.trim();
   const tableColumns = isTable ? neededKeys(definition).join(SEP) : '';
+  /** Which report these rows belong to: rows loaded for another dataset / table are never shown under this one. */
+  const dataKey = `${definition.dataset}|${definition.sourceTable ?? ''}|${tableColumns}`;
 
   useEffect(() => {
     let cancelled = false;
 
     if (isTable && (!definition.sourceTable || !tableColumns)) {
       // Nothing to read yet: the report has no fields.
-      setRows([]);
+      setLoaded({ key: dataKey, rows: [] });
       setMeta({ state: 'complete', records: 0, executionMs: 0, completedAt: new Date().toISOString(), dataSource: dataSourceName });
       return undefined;
     }
@@ -65,12 +70,12 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
     activeSource.id === 'none' ?
     Promise.reject(new Error('No data source is connected. Add one on the Data Sources page.')) :
     fetchTableRows(activeSource.id, definition.sourceTable as string, tableColumns.split(SEP)) :
-    fetchDatasetRows(definition, typeFilter);
+    fetchDatasetRows(definition, typeFilter, scope, serverSearch);
 
     request.
     then((response) => {
       if (cancelled) return;
-      setRows(response.rows as Row[]);
+      setLoaded({ key: dataKey, rows: response.rows as Row[] });
       setMeta({
         state: 'complete',
         records: response.records,
@@ -82,16 +87,19 @@ export function useErpQuery(definition: ReportDefinition, dataSourceName: string
     }).
     catch((err: Error) => {
       if (cancelled) return;
-      setRows([]);
+      setLoaded({ key: dataKey, rows: [] });
       setMeta((prev) => ({ ...prev, state: 'error', error: err.message }));
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [definition.dataset, definition.sourceTable, tableColumns, definition.dateFrom, definition.dateTo, customerKey, typeFilter, nonce, dataSourceName, activeSource.id]);
+  }, [definition.dataset, definition.sourceTable, tableColumns, definition.dateFrom, definition.dateTo, customerKey, typeFilter, scope.customer, scope.company, serverSearch, nonce, dataSourceName, activeSource.id]);
 
   const rerun = useCallback(() => setNonce((n) => n + 1), []);
+
+  // Until this report's own rows arrive the table is empty (not showing the previous report's rows).
+  const rows = loaded && loaded.key === dataKey ? loaded.rows : null;
 
   return { meta, rerun, rows };
 }
@@ -132,4 +140,47 @@ export function useTypeOptions(definition: ReportDefinition, refreshKey: unknown
   }, [enabled, definition.dataset, periodKey, activeSource.id, refreshKey]);
 
   return { options, upToDate: loadedFor === periodKey };
+}
+
+
+/**
+ * The Customer and Company drop-downs of the report controls: the customers / companies found in the period.
+ * `customersReady` / `companiesReady` tell the caller when the lists belong to the current period, so a chosen value
+ * that has no documents in a newly picked period can fall back to "All".
+ */
+export function useScopeOptions(definition: ReportDefinition, refreshKey: unknown) {
+  const { activeSource } = useErpConnection();
+  const [customers, setCustomers] = useState<string[]>([]);
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [loadedFor, setLoadedFor] = useState('');
+  const enabled = hasCustomerFilter(definition.dataset) || hasCompanyFilter(definition.dataset);
+  const periodKey = `${definition.dataset}|${definition.dateFrom ?? ''}|${definition.dateTo ?? ''}`;
+
+  useEffect(() => {
+    if (!enabled) {
+      setCustomers([]);
+      setCompanies([]);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchScopeOptions(definition).
+    then((result) => {
+      if (cancelled) return;
+      setCustomers(result.customers);
+      setCompanies(result.companies);
+      setLoadedFor(periodKey);
+    }).
+    catch(() => {
+      if (!cancelled) {
+        setCustomers([]);
+        setCompanies([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, periodKey, activeSource.id, refreshKey]);
+
+  return { customers, companies, upToDate: loadedFor === periodKey };
 }

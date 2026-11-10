@@ -166,7 +166,7 @@ export interface DetailOverride {
 /** What differs between the reports that share this engine (Manufacturing Quick Report, Inventory Quick Report). */
 export interface BranchOptions {
   overrides: Record<string, DetailOverride>;
-  /** false = no Customer / Invoice No columns in the view (Inventory Quick Report) */
+  /** false = no Customer / Invoice No columns in the view */
   withCustomer: boolean;
   /** 'inventory' = Quantity, From / To Company-Site-Location-Bin Location, Cost Centre (no Job No / Kg / Pieces / Stage) */
   layout?: 'manufacturing' | 'inventory';
@@ -515,6 +515,7 @@ export function buildBranch(src: MfgSource, catalog: Catalog, invoiceHeaders: Se
     `${nvarchar(txnTypeCol ? trimmed('h', txnTypeCol) : 'NULL')} AS [txnType],`,
     `${nvarchar(`'${esc(src.hed)}'`)} AS [source],`,
     `${nvarchar(trimmed('h', refNo))} AS [reference],`,
+    `${customer} AS [customer],`,
     `CAST(h.${q(hedCols.get('txndate') ?? 'TxnDate')} AS date) AS [date],`,
     `${nvarchar(hedCols.get('manuref') ? trimmed('h', hedCols.get('manuref')!) : 'NULL')} AS [manualNo],`,
     `${itemCode} AS [itemCode],`,

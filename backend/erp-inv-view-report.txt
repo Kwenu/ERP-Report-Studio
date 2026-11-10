@@ -1,4 +1,4 @@
-Inventory Quick Report view: 17 transaction tables - 17 read their detail lines, 0 header only; no customer column in this report.
+Inventory Quick Report view: 17 transaction tables - 17 read their detail lines, 0 header only; 5 have a customer.
 5 transaction names that share a table still have no Txn Type code, so their documents show the table's default type name (see the txn-codes file next to the report).
 
 fPoHed  ->  fPoDet   [header + detail lines]
@@ -10,6 +10,7 @@ fPoHed  ->  fPoDet   [header + detail lines]
       Cost Centre    fPoHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fPoHed / fPoDet
 fGrnHed  ->  fGrnDet   [header + detail lines]
       Item code      fGrnDet.ItemCode
       Name           fItems.ItemName
@@ -21,6 +22,7 @@ fGrnHed  ->  fGrnDet   [header + detail lines]
       Cost Centre    fGrnHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fGrnHed / fGrnDet
 fGrnrHed  ->  fGrnrDet   [header + detail lines]
       Item code      fGrnrDet.ItemCode
       Name           fItems.ItemName
@@ -31,10 +33,12 @@ fGrnrHed  ->  fGrnrDet   [header + detail lines]
       Cost Centre    fGrnrHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fGrnrHed / fGrnrDet
 fQuoHed  ->  fQuoDet   [header + detail lines]
       Item code      fQuoDet.Itemcode
       Name           fItems.ItemName
       Quantity       fQuoDet.Qty
+      Customer       fQuoHed.DebCode -> fDebtor.DebName
       From Company   fQuoHed.ComCode
       From Site      fQuoHed.sitecode
       From Location  fQuoHed.LocCode
@@ -45,6 +49,7 @@ fOrdHed  ->  fOrdDet   [header + detail lines]
       Item code      fOrdDet.Itemcode
       Name           fItems.ItemName
       Quantity       fOrdDet.Qty
+      Customer       fOrdHed.DebCode -> fDebtor.DebName
       From Company   fOrdHed.comcode
       From Site      fOrdHed.SiteCode
       From Location  fOrdHed.LocCode
@@ -55,6 +60,7 @@ fInvHed  ->  fInvDet   [header + detail lines]
       Item code      fInvDet.Itemcode
       Name           fItems.ItemName
       Quantity       fInvDet.Qty
+      Customer       fInvHed.DebCode -> fDebtor.DebName
       From Company   fInvHed.ComCode
       From Site      fInvHed.SiteCode
       From Location  fInvHed.LocCode
@@ -65,6 +71,7 @@ fInvrHed  ->  fInvrDet   [header + detail lines]
       Item code      fInvrDet.ItemCode
       Name           fItems.ItemName
       Quantity       fInvrDet.Qty
+      Customer       fInvrHed.DebCode -> fDebtor.DebName
       To Company     fInvrHed.ComCode
       To Site        fInvrHed.SiteCode
       To Location    fInvrHed.LocCode
@@ -75,6 +82,7 @@ fDispHed  ->  fDispDet   [header + detail lines]
       Item code      fDispDet.ItemCode
       Name           fItems.ItemName
       Quantity       fDispDet.Qty
+      Customer       fDispHed.DebCode -> fDebtor.DebName
       From Company   fDispHed.ComCode
       From Site      fDispHed.SiteCode
       From Location  fDispHed.LocCode
@@ -92,6 +100,7 @@ fIssHed  ->  fIssDet   [header + detail lines]
       Cost Centre    fIssHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fIssHed / fIssDet
 fIssRHed  ->  fIssRDet   [header + detail lines]
       Item code      fIssRDet.ItemCode
       Name           fItems.ItemName
@@ -102,6 +111,7 @@ fIssRHed  ->  fIssRDet   [header + detail lines]
       Cost Centre    fIssRHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fIssRHed / fIssRDet
 fTranHed  ->  fTranDet   [header + detail lines]
       Item code      fTranDet.ItemCode
       Name           fItems.ItemName
@@ -111,6 +121,7 @@ fTranHed  ->  fTranDet   [header + detail lines]
       Cost Centre    fTranHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fTranHed / fTranDet
 fDamHed  ->  fDamDet   [header + detail lines]
       Item code      fDamDet.ItemCode
       Name           fItems.ItemName
@@ -120,6 +131,7 @@ fDamHed  ->  fDamDet   [header + detail lines]
       Cost Centre    fDamHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fDamHed / fDamDet
 fMatRetHed  ->  fMatRetDet   [header + detail lines]
       Item code      fMatRetDet.ItemCode
       Name           fItems.ItemName
@@ -130,6 +142,7 @@ fMatRetHed  ->  fMatRetDet   [header + detail lines]
       Cost Centre    fMatRetHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fMatRetHed / fMatRetDet
 fAdjHed  ->  fAdjDet   [header + detail lines]
       Item code      fAdjDet.ItemCode
       Name           fItems.ItemName
@@ -140,6 +153,7 @@ fAdjHed  ->  fAdjDet   [header + detail lines]
       Cost Centre    fAdjHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fAdjHed / fAdjDet
 FiRIssHed  ->  FiRIssDet   [header + detail lines]
       Item code      FiRIssDet.ItemCode
       Name           fItems.ItemName
@@ -150,6 +164,7 @@ FiRIssHed  ->  FiRIssDet   [header + detail lines]
       Cost Centre    FiRIssHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on FiRIssHed / FiRIssDet
 fiAccpHed  ->  fiAccpDet   [header + detail lines]
       Item code      fiAccpDet.ItemCode
       Name           fItems.ItemName
@@ -160,6 +175,7 @@ fiAccpHed  ->  fiAccpDet   [header + detail lines]
       Cost Centre    fiAccpHed.CostCode
       ! header column MachCode (Machine) not found - left empty
       ! header column ItemCode (Item) not found - left empty
+      ! no customer column on fiAccpHed / fiAccpDet
 fmRStTrnhed  ->  fmRStTrnDet   [header + detail lines]
       Item code      fmRStTrnhed.ItemCode (then fmRStTrnDet.ItemCode)
       Name           fItems.ItemName
@@ -168,3 +184,4 @@ fmRStTrnhed  ->  fmRStTrnDet   [header + detail lines]
       From Location  fmRStTrnhed.LocCode (then fmRStTrnDet.LocCode)
       Cost Centre    fmRStTrnhed.CostCode
       ! header column MachCode (Machine) not found - left empty
+      ! no customer column on fmRStTrnhed / fmRStTrnDet - possible: fmRStTrnhed.CusPo (set customer: '<column>' in DETAIL_OVERRIDES)

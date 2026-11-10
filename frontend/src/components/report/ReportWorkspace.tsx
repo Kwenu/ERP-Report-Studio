@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
 import type { ErpField, ReportColumn, ReportDefinition } from '../../types/erp';
 import { columnFromField, getTemplate, cloneDefinition } from '../../data/templates';
@@ -27,7 +28,8 @@ import { ReportControlsBar } from './ReportControlsBar';
 import { Button } from '../ui/Button';
 import { useApp, canDesign } from '../../contexts/AppContext';
 import { useErpConnection } from '../../contexts/ErpConnectionContext';
-import { useErpQuery, useTypeOptions } from '../../hooks/useErpQuery';
+import { useErpQuery, useScopeOptions, useTypeOptions } from '../../hooks/useErpQuery';
+import { hasCompanyFilter, hasCustomerFilter } from '../../utils/scope';
 import { exportCsv, exportExcel, exportPdf } from '../../utils/exporter';
 import { compactSelectClass } from '../../utils/ui';
 
@@ -58,6 +60,9 @@ interface ReportWorkspaceProps {
   emptyState?: React.ReactNode;
 }
 
+/** Id of the filter that holds the customers opened in the AR Customer Details report (see ReportView). */
+const CUSTOMER_SCOPE_ID = 'qp-customer-id';
+
 export function ReportWorkspace({
   definition,
   onDefinitionChange,
@@ -78,9 +83,15 @@ export function ReportWorkspace({
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const navigate = useNavigate();
+  /** What is typed in the "Search within report" box, and what is actually searched (after a short pause, or Enter). */
   const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   /** Manufacturing / Inventory Quick Report: the transaction type chosen in the Type drop-down ('' = All types). */
   const [typeFilter, setTypeFilter] = useState('');
+  /** The Customer / Company drop-downs of the controls bar ('' = all). */
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [refreshedAt, setRefreshedAt] = useState(() => new Date());
@@ -90,8 +101,35 @@ export function ReportWorkspace({
   const visibleColumns = definition.columns.filter((c) => c.visible);
 
   /* Studio → API → query engine → ERP database → rows */
-  const { meta: queryMeta, rerun, rows: remoteRows } = useErpQuery(definition, activeSource.name, typeFilter);
+  // Standard reports search in the DATABASE (every column, the whole period); the typing is given a moment to finish first.
+  useEffect(() => {
+    const t = setTimeout(() => setAppliedSearch(search.trim()), 450);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { meta: queryMeta, rerun, rows: remoteRows } = useErpQuery(definition, activeSource.name, typeFilter, { customer: customerFilter, company: companyFilter }, appliedSearch);
   const { options: typeOptions, upToDate: typeOptionsReady } = useTypeOptions(definition, refreshedAt);
+  const { customers: customerOptions, companies: companyOptions, upToDate: scopeOptionsReady } = useScopeOptions(definition, refreshedAt);
+
+  // A different report is opened in the same screen: start again from All customers / All companies.
+  useEffect(() => {
+    setCustomerFilter('');
+    setCompanyFilter('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [definition.id]);
+
+  // If the period changes and the chosen customer / company has no documents in it any more, fall back to All.
+  useEffect(() => {
+    if (!scopeOptionsReady) return;
+    if (customerFilter && customerOptions.length > 0 && !customerOptions.some((c) => c.toLowerCase() === customerFilter.toLowerCase())) {
+      setCustomerFilter('');
+      setPage(0);
+    }
+    if (companyFilter && companyOptions.length > 0 && !companyOptions.some((c) => c.toLowerCase() === companyFilter.toLowerCase())) {
+      setCompanyFilter('');
+      setPage(0);
+    }
+  }, [customerFilter, companyFilter, customerOptions, companyOptions, scopeOptionsReady]);
 
   // If the period changes and the chosen type has no transactions in it any more, fall back to All.
   useEffect(() => {
@@ -132,19 +170,18 @@ export function ReportWorkspace({
     }
     if (definition.basis === 'Cash') data = data.filter((r) => r.paid === 'Yes');
     data = applyFilters(data, definition.filters);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      data = data.filter((row) =>
-      visibleColumns.some((c) =>
-      String(row[c.key] ?? '').
-      toLowerCase().
-      includes(q)
-      )
-      );
+    // Report Builder (ERP table) reports are searched here, in every loaded field - not only the shown columns.
+    // The standard reports were already searched by the database (see useErpQuery), across all of their columns.
+    if (definition.dataset === 'erpTable' && appliedSearch) {
+      const terms = appliedSearch.toLowerCase().split(/\s+/).filter(Boolean);
+      data = data.filter((row) => {
+        const text = Object.values(row).map((v) => String(v ?? '').toLowerCase()).join('\u0001');
+        return terms.every((term) => text.includes(term));
+      });
     }
     return applySort(data, definition.sort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [definition, search, remoteRows]);
+  }, [definition, appliedSearch, remoteRows]);
 
   const aggOptions = { weighted: definition.weightedAverage, weightKey: 'amount' };
   const grandTotals = useMemo(
@@ -265,7 +302,12 @@ export function ReportWorkspace({
     groups: allGroups,
     rows: viewRows,
     grandTotals: viewGrandTotals,
-    grandCurrencyTotals: pivot ? undefined : grandCurrencyTotals
+    grandCurrencyTotals: pivot ? undefined : grandCurrencyTotals,
+    scopeLines: [
+    ...((definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick') && typeFilter ? [`Type: ${typeFilter}`] : []),
+    ...(hasCustomerFilter(definition.dataset) && customerFilter ? [`Customer: ${customerFilter}`] : []),
+    ...(hasCompanyFilter(definition.dataset) && companyFilter ? [`Company: ${companyFilter}`] : [])]
+
   };
 
   /** Print / Save as PDF: lay out every row of the report (grand total once, at the very end), then print. */
@@ -301,6 +343,27 @@ export function ReportWorkspace({
     setCollapsedGroups([]);
     toast.success('Report restored to the default template structure');
   };
+
+  /* AR Report: tick several customers, then open all their documents in ONE report. */
+  const isArSummary = definition.dataset === 'arSummary';
+  const arCodes = isArSummary ? viewRows.map((r) => String(r.customerId ?? '')).filter(Boolean) : [];
+  const arAllSelected = arCodes.length > 0 && arCodes.every((c) => selectedRows.includes(c));
+  const toggleAllCustomers = () =>
+  setSelectedRows((prev) => arAllSelected ? prev.filter((c) => !arCodes.includes(c)) : [...new Set([...prev, ...arCodes])]);
+  const openSelectedCustomers = () => {
+    if (selectedRows.length === 0) return;
+    const query = new URLSearchParams();
+    selectedRows.forEach((code) => query.append('customerId', code));
+    if (selectedRows.length === 1) {
+      const row = viewRows.find((r) => String(r.customerId) === selectedRows[0]);
+      if (row?.name) query.set('customerName', String(row.name));
+    }
+    logAction(`Opened customer details (${selectedRows.length} customer${selectedRows.length === 1 ? '' : 's'})`, definition.name);
+    navigate(`/reports/ar/ar-customer-detail?${query.toString()}`);
+  };
+
+  /** The customers chosen for AR Customer Details are the report's scope (picked at the top), not a filter to clear. */
+  const userFilters = definition.filters.filter((f) => f.id !== CUSTOMER_SCOPE_ID);
 
   const allGroupKeys = allGroups?.map((g) => g.key) ?? [];
   const allCollapsed = allGroupKeys.length > 0 && collapsedGroups.length === allGroupKeys.length;
@@ -344,9 +407,8 @@ export function ReportWorkspace({
           onShare={() => toast.success(`Sharing link generated for ${definition.name}`)}
           onFavorite={() => toggleFavorite(definition.id)}
           onSchedule={() => setScheduleOpen(true)}
-          filterCount={definition.filters.length} />
+          filterCount={userFilters.length} />
         
-
         <ReportControlsBar
           definition={definition}
           onChange={patch}
@@ -356,6 +418,10 @@ export function ReportWorkspace({
             setSearch(value);
             setPage(0);
           }}
+          onSearchCommit={() => setAppliedSearch(search.trim())}
+          selectedLabel={isArSummary ? 'customer' : 'row'}
+          onClearSelection={() => setSelectedRows([])}
+          onOpenSelectedCustomers={isArSummary ? openSelectedCustomers : undefined}
           hasGroups={Boolean(allGroups)}
           allCollapsed={allCollapsed}
           onToggleCollapseAll={() => setCollapsedGroups(allCollapsed ? [] : allGroupKeys)}
@@ -369,13 +435,27 @@ export function ReportWorkspace({
             setTypeFilter(value);
             setPage(0);
             setSelectedRows([]);
+          }}
+          customerOptions={customerOptions}
+          customer={customerFilter}
+          onCustomerChange={(value) => {
+            setCustomerFilter(value);
+            setPage(0);
+            setSelectedRows([]);
+          }}
+          companyOptions={companyOptions}
+          company={companyFilter}
+          onCompanyChange={(value) => {
+            setCompanyFilter(value);
+            setPage(0);
+            setSelectedRows([]);
           }} />
         
 
         <FilterChips
-          filters={definition.filters}
+          filters={userFilters}
           onRemove={(id) => patch({ filters: definition.filters.filter((f) => f.id !== id) })}
-          onClear={() => patch({ filters: [] })} />
+          onClear={() => patch({ filters: definition.filters.filter((f) => f.id === CUSTOMER_SCOPE_ID) })} />
         
 
         <div className="relative min-h-0 flex-1 overflow-hidden bg-surface-muted">
@@ -392,7 +472,11 @@ export function ReportWorkspace({
             emptyState :
 
             <>
-            <ReportHeading definition={definition} typeLabel={definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick' ? typeFilter : ''} />
+            <ReportHeading
+              definition={definition}
+              typeLabel={definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick' ? typeFilter : ''}
+              customerLabel={hasCustomerFilter(definition.dataset) ? customerFilter : ''}
+              companyLabel={hasCompanyFilter(definition.dataset) ? companyFilter : ''} />
             {pivot && pivot.pivotColumnCount > pivot.pivotColumnsShown &&
               <p className="border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-2xs text-amber-800" role="status">
                   The Columns fields have {pivot.pivotColumnCount.toLocaleString()} distinct values. Showing the first{' '}
@@ -423,7 +507,9 @@ export function ReportWorkspace({
                 setSelectedRows((prev) =>
                 prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
                 )
-                } />
+                }
+                onSelectAll={isArSummary ? toggleAllCustomers : undefined}
+                allSelected={arAllSelected} />
               
               </>
             }

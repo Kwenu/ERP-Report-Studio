@@ -7,6 +7,7 @@ import type {
   SortRule } from
 '../types/erp';
 import { cellCurrency, formatValue } from './format';
+import { IN_SEPARATOR } from './scope';
 
 /* ------------------------------------------------------------------ *
  * The report engine turns a structured report definition + a dataset  *
@@ -53,6 +54,10 @@ function matches(row: Row, rule: FilterRule): boolean {
       return String(raw ?? '').toLowerCase() === rule.value.trim().toLowerCase();
     case 'not equals':
       return String(raw ?? '').toLowerCase() !== rule.value.trim().toLowerCase();
+    case 'is one of':
+      return rule.value.
+      split(IN_SEPARATOR).
+      some((v) => v.trim().toLowerCase() === String(raw ?? '').trim().toLowerCase());
     case 'contains':
       return String(raw ?? '').
       toLowerCase().

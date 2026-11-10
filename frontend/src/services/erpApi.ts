@@ -7,6 +7,7 @@
 import type { DataSourceConnection, ErpField, ErpTable, RefreshMode, Relationship, ReportDefinition, Row } from '../types/erp';
 import { allFields as sampleFields, erpTables as sampleTables } from '../data/schema';
 import { http } from './http';
+import { companyKeysFor, customerCodesOf, customerKeyFor, emptyScope, IN_SEPARATOR, type ReportScope } from '../utils/scope';
 
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api/v1') as string;
 
@@ -319,31 +320,90 @@ export async function runQuery(definition: ReportDefinition, signal?: { cancelle
 export async function fetchDatasetRows(
   definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo' | 'filters'>,
   /** Manufacturing / Inventory Quick Report only: limit the rows to ONE transaction type ('' / undefined = all types). */
-  typeFilter?: string
+  typeFilter?: string,
+  /** The Customer / Company drop-downs of the controls bar ('' = all). */
+  scope: ReportScope = emptyScope,
+  /** "Search within report": matched by the DATABASE against every column of the dataset, over the whole period. */
+  search = ''
 ): Promise<QueryResponse & { truncated: boolean }> {
   const result = await http<QueryResponse>('/reports/query', {
     method: 'POST',
     body: JSON.stringify({
       dataset: definition.dataset,
       columns: [], // empty = every column of the dataset
-      // The AR customer-details report is always about ONE customer: ask the database for just that customer's
-      // documents (instead of every customer's, which could exceed the 20,000-row limit).
-      filters: definition.dataset === 'arTransactions' ?
-      (definition.filters ?? []).
-      filter((f) => f.key === 'customerId' && f.operator === 'equals' && f.value).
-      map((f) => ({ key: f.key, operator: f.operator, value: f.value, connector: 'AND' })) :
-      // Manufacturing / Inventory Quick Report: the Type drop-down is applied by the database, so a type is complete
-      // even when the whole period holds more than the 20,000-row limit.
-      (definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick') && typeFilter ?
-      [{ key: 'type', operator: 'equals', value: typeFilter, connector: 'AND' }] :
-      [],
+      filters: datasetFilters(definition, typeFilter, scope),
       sort: [],
       dateFrom: definition.dateFrom || undefined,
       dateTo: definition.dateTo || undefined,
+      search: search.trim() || undefined,
       pageSize: 20000
     })
   });
   return { ...result, truncated: result.records > result.rows.length };
+}
+
+type ServerFilter = { key: string; operator: 'equals' | 'is one of'; value: string; connector: 'AND' | 'OR' };
+
+/**
+ * The filters the DATABASE applies (everything else - the Filters panel, search box, grouping - is applied in the browser).
+ *  - AR customer details: the selected customer(s) (by code), so only their documents are read.
+ *  - Manufacturing / Inventory Quick: the Type drop-down.
+ *  - Customer / Company drop-downs of the reports that offer them.
+ * The filters are combined left to right, so the Company pair (From OR To) goes first: ((from OR to) AND type) AND customer.
+ */
+function datasetFilters(
+  definition: Pick<ReportDefinition, 'dataset' | 'filters'>,
+  typeFilter: string | undefined,
+  scope: ReportScope
+): ServerFilter[] {
+  if (definition.dataset === 'arTransactions') {
+    // One customer, or several selected in the AR Report: only those customers' documents are read.
+    const codes = [...new Set(customerCodesOf(definition.filters ?? []))];
+    if (codes.length === 0) return [];
+    return codes.length === 1 ?
+    [{ key: 'customerId', operator: 'equals' as const, value: codes[0], connector: 'AND' as const }] :
+    [{ key: 'customerId', operator: 'is one of' as const, value: codes.join(IN_SEPARATOR), connector: 'AND' as const }];
+  }
+
+  const out: ServerFilter[] = [];
+  const companyKeys = companyKeysFor(definition.dataset);
+  if (scope.company && companyKeys.length) {
+    companyKeys.forEach((key, i) => out.push({ key, operator: 'equals', value: scope.company, connector: i === 0 ? 'AND' : 'OR' }));
+  }
+  if ((definition.dataset === 'mfgQuick' || definition.dataset === 'inventoryQuick') && typeFilter) {
+    out.push({ key: 'type', operator: 'equals', value: typeFilter, connector: 'AND' });
+  }
+  const customerKey = customerKeyFor(definition.dataset);
+  if (scope.customer && customerKey) {
+    out.push({ key: customerKey, operator: 'equals', value: scope.customer, connector: 'AND' });
+  }
+  return out;
+}
+
+/**
+ * The values offered by the Customer and Company drop-downs: every distinct customer / company found in the period
+ * (read from the whole period in the database). A list that cannot be read (for example the Inventory Quick view has
+ * not been rebuilt yet) is simply empty.
+ */
+export async function fetchScopeOptions(
+  definition: Pick<ReportDefinition, 'dataset' | 'dateFrom' | 'dateTo' | 'hidePeriod'>
+): Promise<{ customers: string[]; companies: string[] }> {
+  // The AR summary is a balance "as at today" and has no date column to filter on.
+  const noDates = definition.hidePeriod || definition.dataset === 'arSummary';
+  const from = noDates ? undefined : definition.dateFrom;
+  const to = noDates ? undefined : definition.dateTo;
+
+  const customerKey = customerKeyFor(definition.dataset);
+  const companyKeys = companyKeysFor(definition.dataset);
+
+  const safe = (column: string) => fetchDistinctValues(definition.dataset, column, from, to).catch(() => [] as string[]);
+
+  const [customers, ...companyLists] = await Promise.all([
+    customerKey ? safe(customerKey) : Promise.resolve([] as string[]),
+    ...companyKeys.map((key) => safe(key))]
+  );
+  const companies = [...new Set(companyLists.flat())].sort((a, b) => a.localeCompare(b));
+  return { customers, companies };
 }
 
 

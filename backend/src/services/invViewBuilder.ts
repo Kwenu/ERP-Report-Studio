@@ -4,7 +4,7 @@
  * transaction, detail columns read from the ERP database and matched by name, header-only documents stay one row.
  * Only the layout differs (layout: 'inventory'), as in Inventory_Quick_Report_1.xlsx:
  *
- *   Type | Reference No | Date | Manual No | Item code | Name | Machine | Quantity |
+ *   Type | Reference No | Customer (filter only; sales documents) | Date | Manual No | Item code | Name | Machine | Quantity |
  *   From: Company, Site, Location, Bin Location | To: Company, Site, Location, Bin Location | Cost Centre
  *
  *  - table pairs (header -> detail): the sheet's "Tables need to get the data for this report"
@@ -88,7 +88,7 @@ export const INV_CONFIG: ViewConfig = {
   viewName: 'v_inventory_quick',
   title: 'Inventory Quick Report',
   command: 'npm run erp:inv-view',
-  opts: { overrides: INV_OVERRIDES, withCustomer: false, layout: 'inventory' }
+  opts: { overrides: INV_OVERRIDES, withCustomer: true, layout: 'inventory' }
 };
 
 /** Builds the Inventory Quick Report view from what exists in the ERP database. */

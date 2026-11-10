@@ -1,10 +1,12 @@
-import { ChevronsDownUpIcon, ChevronsUpDownIcon, DatabaseIcon, Loader2Icon, SearchIcon, SlidersHorizontalIcon, TriangleAlertIcon } from 'lucide-react';
+import { ChevronsDownUpIcon, ChevronsUpDownIcon, DatabaseIcon, ListTreeIcon, Loader2Icon, SearchIcon, SlidersHorizontalIcon, TriangleAlertIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import type { QueryResultMeta, ReportDefinition } from '../../types/erp';
 import { formatDateTime } from '../../utils/format';
 import { matchPreset, periodPresets, presetRange, type PeriodId } from '../../utils/period';
 import { groupOptionsFor } from '../../data/templates';
 import { compactInputClass, compactSelectClass } from '../../utils/ui';
+import { SearchableSelect } from '../ui/SearchableSelect';
+import { hasCompanyFilter, hasCustomerFilter } from '../../utils/scope';
 
 interface ReportControlsBarProps {
   definition: ReportDefinition;
@@ -12,6 +14,13 @@ interface ReportControlsBarProps {
   meta: QueryResultMeta;
   search: string;
   onSearch: (value: string) => void;
+  /** Enter in the search box: search now instead of waiting for the typing pause. */
+  onSearchCommit?: () => void;
+  /** "customer" in the AR Report, "row" elsewhere. */
+  selectedLabel?: string;
+  onClearSelection?: () => void;
+  /** AR Report only: open every ticked customer's documents in one report. */
+  onOpenSelectedCustomers?: () => void;
   hasGroups: boolean;
   allCollapsed: boolean;
   onToggleCollapseAll: () => void;
@@ -23,6 +32,13 @@ interface ReportControlsBarProps {
   typeOptions?: string[];
   typeFilter?: string;
   onTypeChange?: (value: string) => void;
+  /** Customer / Company drop-downs: the values found in the period + the selected one ('' = All). */
+  customerOptions?: string[];
+  customer?: string;
+  onCustomerChange?: (value: string) => void;
+  companyOptions?: string[];
+  company?: string;
+  onCompanyChange?: (value: string) => void;
 }
 
 const label = 'whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-ink-500';
@@ -37,6 +53,10 @@ export function ReportControlsBar({
   meta,
   search,
   onSearch,
+  onSearchCommit,
+  selectedLabel = 'row',
+  onClearSelection,
+  onOpenSelectedCustomers,
   hasGroups,
   allCollapsed,
   onToggleCollapseAll,
@@ -46,7 +66,13 @@ export function ReportControlsBar({
   onOpenPanel,
   typeOptions = [],
   typeFilter = '',
-  onTypeChange
+  onTypeChange,
+  customerOptions = [],
+  customer = '',
+  onCustomerChange,
+  companyOptions = [],
+  company = '',
+  onCompanyChange
 }: ReportControlsBarProps) {
   const running = meta.state === 'running';
 
@@ -158,6 +184,45 @@ export function ReportControlsBar({
           </div>
         }
 
+        {hasCustomerFilter(definition.dataset) && onCustomerChange &&
+        <div className="flex items-center gap-1">
+            <span className={label}>Customer</span>
+            <SearchableSelect
+            ariaLabel="Filter by customer"
+            options={[
+            ...customerOptions.map((c) => ({ value: c, label: c })),
+            // keeps the current choice visible while the list is still loading
+            ...(customer && !customerOptions.includes(customer) ? [{ value: customer, label: customer }] : [])]
+            }
+            value={customer}
+            onChange={onCustomerChange}
+            allLabel="All customers"
+            emptyText="No customers found"
+            widthClass="w-[190px]"
+            panelClass="w-[340px]" />
+          
+          </div>
+        }
+
+        {hasCompanyFilter(definition.dataset) && onCompanyChange &&
+        <div className="flex items-center gap-1">
+            <span className={label}>Company</span>
+            <SearchableSelect
+            ariaLabel="Filter by company"
+            options={[
+            ...companyOptions.map((c) => ({ value: c, label: c })),
+            ...(company && !companyOptions.includes(company) ? [{ value: company, label: company }] : [])]
+            }
+            value={company}
+            onChange={onCompanyChange}
+            allLabel="All companies"
+            emptyText="No companies found"
+            widthClass="w-[130px]"
+            panelClass="w-[220px]" />
+          
+          </div>
+        }
+
         <div className="relative w-44">
           <SearchIcon className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-400" />
           <input
@@ -165,6 +230,10 @@ export function ReportControlsBar({
             placeholder="Search within report…"
             value={search}
             onChange={(e) => onSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onSearchCommit?.();
+            }}
+            title="Searches every column of the report (including columns that are not shown), across the whole period"
             aria-label="Search within report" />
           
         </div>
@@ -179,9 +248,26 @@ export function ReportControlsBar({
           </Button>
         }
         {selectedCount > 0 &&
-        <span className="text-2xs text-accent-700">
-            {selectedCount} row{selectedCount === 1 ? '' : 's'} selected
+        <span className="flex items-center gap-1.5 text-2xs text-accent-700">
+            {selectedCount} {selectedLabel}{selectedCount === 1 ? '' : 's'} selected
+            {onClearSelection &&
+          <button type="button" onClick={onClearSelection} className="font-medium underline-offset-2 hover:underline">
+                Clear
+              </button>
+          }
           </span>
+        }
+        {onOpenSelectedCustomers &&
+        <Button
+          size="xs"
+          variant="primary"
+          icon={<ListTreeIcon className="h-3 w-3" />}
+          disabled={selectedCount === 0}
+          onClick={onOpenSelectedCustomers}
+          title="Tick the customers in the first column, then open all their invoices, payments, credit notes, debit notes and advances in one report">
+          
+            Show details of selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
+          </Button>
         }
 
         <div

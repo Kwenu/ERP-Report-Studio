@@ -11,7 +11,7 @@ function periodLabel(def: ReportDefinition): string {
   return `${formatDate(def.dateFrom)} — ${formatDate(def.dateTo)}`;
 }
 
-export function ReportHeading({ definition, typeLabel }: {definition: ReportDefinition;typeLabel?: string;}) {
+export function ReportHeading({ definition, typeLabel, customerLabel, companyLabel }: {definition: ReportDefinition;typeLabel?: string;customerLabel?: string;companyLabel?: string;}) {
   return (
     <>
       {/* On screen: one slim line, so the data gets the room. */}
@@ -25,6 +25,18 @@ export function ReportHeading({ definition, typeLabel }: {definition: ReportDefi
         <>
             <span className="text-ink-400">·</span>
             <span className="text-2xs uppercase tracking-wide text-ink-500">Type: {typeLabel}</span>
+          </>
+        }
+        {customerLabel &&
+        <>
+            <span className="text-ink-400">·</span>
+            <span className="text-2xs uppercase tracking-wide text-ink-500">Customer: {customerLabel}</span>
+          </>
+        }
+        {companyLabel &&
+        <>
+            <span className="text-ink-400">·</span>
+            <span className="text-2xs uppercase tracking-wide text-ink-500">Company: {companyLabel}</span>
           </>
         }
         {definition.basis &&
@@ -42,6 +54,8 @@ export function ReportHeading({ definition, typeLabel }: {definition: ReportDefi
         {definition.subtitle && <p className="text-xs text-ink-700">{definition.subtitle}</p>}
         <p className="text-xs text-ink-700">{periodLabel(definition)}</p>
         {typeLabel && <p className="text-xs text-ink-700">Type: {typeLabel}</p>}
+        {customerLabel && <p className="text-xs text-ink-700">Customer: {customerLabel}</p>}
+        {companyLabel && <p className="text-xs text-ink-700">Company: {companyLabel}</p>}
         {definition.basis &&
         <p className="mt-0.5 text-2xs uppercase tracking-wide text-ink-500">Report Basis: {definition.basis}</p>
         }

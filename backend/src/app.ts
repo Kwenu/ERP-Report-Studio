@@ -12,6 +12,7 @@ import { auditRouter } from './routes/audit.routes';
 import { schedulesRouter } from './routes/schedules.routes';
 import { invoicesRouter } from './routes/invoices.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
+import path from 'path';
 
 export const app = express();
 
@@ -34,15 +35,23 @@ app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
-const API_BASE = '/api/v1';
-app.use(`${API_BASE}/auth`, authRouter);
-app.use(`${API_BASE}/datasources`, datasourcesRouter);
-app.use(`${API_BASE}/schema`, schemaRouter);
-app.use(`${API_BASE}/reports`, reportsRouter);
-app.use(`${API_BASE}/users`, usersRouter);
-app.use(`${API_BASE}/audit`, auditRouter);
-app.use(`${API_BASE}/schedules`, schedulesRouter);
-app.use(`${API_BASE}/invoices`, invoicesRouter);
+for (const base of ['/api/v1', '/v1']) {
+  app.use(`${base}/auth`, authRouter);
+  app.use(`${base}/datasources`, datasourcesRouter);
+  app.use(`${base}/schema`, schemaRouter);
+  app.use(`${base}/reports`, reportsRouter);
+  app.use(`${base}/users`, usersRouter);
+  app.use(`${base}/audit`, auditRouter);
+  app.use(`${base}/schedules`, schedulesRouter);
+  app.use(`${base}/invoices`, invoicesRouter);
+}
+
+const webDist = path.resolve(__dirname, '../../frontend/dist');
+app.use(express.static(webDist));
+app.get(/^\/(?!api\/|health).*/, (_req, res) =>
+  res.sendFile(path.join(webDist, 'index.html'))
+);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
+export default app;

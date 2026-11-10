@@ -370,6 +370,9 @@ export const DATASETS: Record<DatasetId, DatasetDefinition> = {
       txnType: { dataType: 'text', label: 'Txn Type Code' },
       source: { dataType: 'text', label: 'Source Table' },
       reference: { dataType: 'text', label: 'Reference No' },
+      // Only filled for documents that carry a customer (quotation, sales order, invoice, dispatch ...). Needs the view
+      // to be rebuilt once with `npm run erp:inv-view -- --apply`; reports stay usable until then (see OPTIONAL_COLUMNS).
+      customer: { dataType: 'text', label: 'Customer' },
       date: { dataType: 'date', label: 'Date' },
       manualNo: { dataType: 'text', label: 'Manual No' },
       itemCode: { dataType: 'text', label: 'Item Code' },

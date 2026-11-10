@@ -37,6 +37,9 @@ interface ReportTableProps {
   onReorder: (fromId: string, toId: string) => void;
   selectedRows: string[];
   onSelectRow: (id: string) => void;
+  /** AR Report: tick / untick every customer of the (filtered) report at once. Omitted = no "select all" box. */
+  onSelectAll?: () => void;
+  allSelected?: boolean;
 }
 
 const density = {
@@ -64,7 +67,9 @@ export function ReportTable({
   onColumnChange,
   onReorder,
   selectedRows,
-  onSelectRow
+  onSelectRow,
+  onSelectAll,
+  allSelected = false
 }: ReportTableProps) {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const dragId = useRef<string | null>(null);
@@ -150,11 +155,16 @@ export function ReportTable({
 
 
   const dataRow = (row: Row, index: number) => {
-    const rowId = String(row.lineId ?? row.invoiceId ?? row.paymentId ?? index);
+    // AR Report: a row is a customer, and the selection is kept by customer code (so it survives paging, sorting and searching)
+    const rowId = definition.dataset === 'arSummary' && row.customerId ?
+    String(row.customerId) :
+    String(row.lineId ?? row.invoiceId ?? row.paymentId ?? index);
     const selected = selectedRows.includes(rowId);
     return (
       <tr
-        key={rowId}
+        // The position is part of the key: two rows can share an id (e.g. every document of one customer), and rows
+        // with the same key are what left "ghost" rows of another report behind.
+        key={`${index}:${rowId}`}
         onClick={() => onSelectRow(rowId)}
         className={cx(
           'cursor-default border-b border-line/70 transition-colors duration-100',
@@ -167,6 +177,7 @@ export function ReportTable({
             type="checkbox"
             checked={selected}
             onChange={() => onSelectRow(rowId)}
+            onClick={(e) => e.stopPropagation()}
             aria-label={`Select row ${rowId}`}
             className="h-3 w-3 rounded border-line-strong accent-accent-500" />
           
@@ -246,8 +257,18 @@ export function ReportTable({
             <th
               className={cx(
                 d.head,
-                'sticky left-0 top-0 z-30 w-[34px] border-b border-line bg-surface-sunken'
-              )} />
+'sticky left-0 top-0 z-30 w-[34px] border-b border-line bg-surface-sunken text-center'
+              )}>
+              {onSelectAll &&
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={onSelectAll}
+                aria-label="Select all customers"
+                title="Select / unselect all customers in this report"
+                className="h-3 w-3 rounded border-line-strong accent-accent-500" />
+              }
+            </th>
             
             {columns.map((col) => {
               const active = sortFor(definition.sort, col.key);
