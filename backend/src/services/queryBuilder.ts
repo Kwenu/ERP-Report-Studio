@@ -360,3 +360,43 @@ export function buildCountParams(built: BuiltQuery): any[] {
   // The last two params are always the paging values (offset/limit).
   return built.params.slice(0, built.params.length - 2);
 }
+
+
+/**
+ * The distinct combinations of several columns in a period, in ONE query (used to fill the Type / Customer / Company
+ * drop-downs with a single scan of the view). Columns and dates are validated / parameterized like everywhere else.
+ */
+export function buildFacetsQuery(input: {
+  dataset: DatasetId;
+  columns: string[];
+  dateFrom?: string;
+  dateTo?: string;
+  dialect?: Dialect;
+}): { sql: string; params: any[] } {
+  const dialect: Dialect = input.dialect ?? 'postgres';
+  const mssql = dialect === 'mssql';
+  const dataset = DATASETS[input.dataset];
+  if (!dataset) throw new QueryValidationError(`Unknown dataset "${input.dataset}".`);
+  input.columns.forEach((c) => assertColumn(input.dataset, c));
+  if (input.dateFrom || input.dateTo) assertColumn(input.dataset, 'date');
+
+  const q = (name: string) => quoteIdent(name, dialect);
+  const viewSql = quoteObjectName(mssql && !dataset.view.includes('.') ? `dbo.${dataset.view}` : dataset.view, dialect);
+  const params: any[] = [];
+  const pushDate = (value: any) => {
+    params.push(value);
+    const ph = mssql ? `@p${params.length}` : `$${params.length}`;
+    return mssql ? `CONVERT(date, ${ph}, 23)` : ph;
+  };
+  const dateType = dataset.columns['date']?.dataType;
+  const dateCol = mssql && dateType === 'datetime' ? `CAST(${q('date')} AS date)` : q('date');
+  const where: string[] = [];
+  if (input.dateFrom) where.push(`${dateCol} >= ${pushDate(input.dateFrom)}`);
+  if (input.dateTo) where.push(`${dateCol} <= ${pushDate(input.dateTo)}`);
+
+  const cols = input.columns.map(q).join(', ');
+  const sql = `SELECT ${cols} FROM ${viewSql} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} GROUP BY ${cols}`
+    .replace(/\s+/g, ' ')
+    .trim();
+  return { sql, params };
+}

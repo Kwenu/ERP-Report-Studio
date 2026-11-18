@@ -31,7 +31,9 @@ export const env = {
     encrypt: (process.env.ERP_DB_ENCRYPT ?? 'false') === 'true',
     trustServerCertificate: (process.env.ERP_DB_TRUST_CERT ?? 'true') === 'true',
     // Old SQL Server (2008-2014) only speaks TLS 1.0/1.1, which Node 18+ refuses by default.
-    legacyTls: (process.env.ERP_DB_LEGACY_TLS ?? 'false') === 'true'
+    legacyTls: (process.env.ERP_DB_LEGACY_TLS ?? 'false') === 'true',
+    // How long one report query may run on the ERP database (seconds). Big periods (100k+ rows) need minutes.
+    queryTimeoutMs: Math.max(30, Number(process.env.ERP_QUERY_TIMEOUT_SECONDS ?? 300)) * 1000
   },
   seedAdminName: process.env.SEED_ADMIN_NAME ?? 'Administrator'
 };

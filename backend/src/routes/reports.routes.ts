@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query } from '../db/pool';
 import { asyncHandler } from '../utils/asyncHandler';
 import { requireAuth } from '../middleware/auth';
-import { buildReportQuery, buildCountParams, QueryValidationError } from '../services/queryBuilder';
+import { buildReportQuery, buildCountParams, buildFacetsQuery, QueryValidationError } from '../services/queryBuilder';
 import { getReportConnector, NoDataSourceError } from '../db/erpConnector';
 import { DATASETS } from '../schema/metadata';
 import { logAudit } from '../services/audit';
@@ -292,6 +292,67 @@ reportsRouter.post(
   })
 );
 
+/* ------------------------------------------------------------------ *
+ * POST /api/v1/reports/facets
+ * The distinct values of SEVERAL columns of a dataset in the period (the Type, Customer and Company drop-downs),
+ * read with ONE scan of the view instead of one scan per drop-down.
+ * ------------------------------------------------------------------ */
+const facetsBodySchema = z.object({
+  dataset: z.enum(['salesLines', 'paymentTxns', 'openInvoices', 'arSummary', 'arTransactions', 'mfgQuick', 'inventoryQuick']),
+  columns: z.array(z.string().min(1)).min(1).max(8),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional()
+});
+
+reportsRouter.post(
+  '/facets',
+  asyncHandler(async (req, res) => {
+    const input = facetsBodySchema.parse(req.body);
+
+    let conn;
+    try {
+      conn = await getReportConnector();
+    } catch (err) {
+      if (err instanceof NoDataSourceError) return res.status(409).json({ error: err.message });
+      throw err;
+    }
+
+    // A column the view does not have yet (e.g. "customer" before `npm run erp:mfg-view` is re-run) is left out: its list is empty.
+    let columns = [...new Set(input.columns)];
+    for (let attempt = 0; attempt < 6 && columns.length; attempt += 1) {
+      let built;
+      try {
+        built = buildFacetsQuery({ dataset: input.dataset, columns, dateFrom: input.dateFrom, dateTo: input.dateTo, dialect: conn.dialect });
+      } catch (err) {
+        if (err instanceof QueryValidationError) return res.status(400).json({ error: err.message });
+        throw err;
+      }
+      try {
+        const result = await conn.query(built.sql, built.params);
+        const values: Record<string, string[]> = {};
+        columns.forEach((c) => {
+          const set = new Set<string>();
+          result.rows.forEach((r: any) => {
+            const v = r[c] === null || r[c] === undefined ? '' : String(r[c]).trim();
+            if (v) set.add(v);
+          });
+          values[c] = [...set].sort((a, b) => a.localeCompare(b));
+        });
+        return res.json({ values });
+      } catch (err: any) {
+        const missingCol = /invalid column name '([^']+)'/i.exec(String(err.message))?.[1];
+        if (conn.dialect === 'mssql' && missingCol && columns.includes(missingCol)) {
+          columns = columns.filter((c) => c !== missingCol);
+          continue;
+        }
+        console.error('Facets query failed:', err.message, '\nSQL:', built.sql);
+        return res.status(502).json({ error: `The ERP database rejected the query: ${err.message}` });
+      }
+    }
+    res.json({ values: {} });
+  })
+);
+
 reportsRouter.post(
   '/query',
   asyncHandler(async (req, res) => {
@@ -320,7 +381,7 @@ reportsRouter.post(
     };
 
     let built;
-    let rowsResult, countResult;
+    let rowsResult, total = 0;
     for (let attempt = 0; ; attempt += 1) {
       try {
         // The search looks in every column of the dataset (shown or not), except the ones this view does not have yet.
@@ -334,10 +395,17 @@ reportsRouter.post(
       }
 
       try {
-        [rowsResult, countResult] = await Promise.all([
-          conn.query(built.sql, built.params),
-          conn.query(built.countSql, buildCountParams(built))
-        ]);
+        // The big ERP view is expensive to scan, so it is scanned once: the rows first, and the separate COUNT(*)
+        // only when the first page is full (otherwise the number of rows IS the total).
+        rowsResult = await conn.query(built.sql, built.params);
+        const pageSize = Math.min(Math.max(Math.floor(input.pageSize ?? 5000), 1), 20000);
+        const page = Math.max(Math.floor(input.page ?? 1), 1);
+        if (page === 1 && rowsResult.rows.length < pageSize) {
+          total = rowsResult.rows.length;
+        } else {
+          const countResult = await conn.query(built.countSql, buildCountParams(built));
+          total = Number(countResult.rows[0]?.total ?? rowsResult.rows.length);
+        }
         break;
       } catch (err: any) {
         const missingCol = /invalid column name '([^']+)'/i.exec(String(err.message))?.[1];
@@ -393,7 +461,7 @@ reportsRouter.post(
 
     res.json({
       rows: rowsResult.rows,
-      records: Number(countResult.rows[0]?.total ?? rowsResult.rows.length),
+      records: total,
       source: conn.label,
       executionMs: Date.now() - started,
       completedAt: new Date().toISOString(),

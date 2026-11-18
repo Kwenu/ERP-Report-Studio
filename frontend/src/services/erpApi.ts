@@ -306,7 +306,7 @@ export async function runQuery(definition: ReportDefinition, signal?: { cancelle
     dateTo: definition.dateTo
   };
 
-  const result = await http<QueryResponse>('/reports/query', { method: 'POST', body: JSON.stringify(payload) });
+  const result = await http<QueryResponse>('/reports/query', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 330_000 });
   if (signal?.cancelled) throw new Error('cancelled');
   return result;
 }
@@ -337,7 +337,9 @@ export async function fetchDatasetRows(
       dateTo: definition.dateTo || undefined,
       search: search.trim() || undefined,
       pageSize: 20000
-    })
+    }),
+    // Large periods (100k+ rows) legitimately take a few minutes on the ERP database.
+    timeoutMs: 330_000
   });
   return { ...result, truncated: result.records > result.rows.length };
 }
@@ -392,18 +394,49 @@ export async function fetchScopeOptions(
   const noDates = definition.hidePeriod || definition.dataset === 'arSummary';
   const from = noDates ? undefined : definition.dateFrom;
   const to = noDates ? undefined : definition.dateTo;
-
   const customerKey = customerKeyFor(definition.dataset);
   const companyKeys = companyKeysFor(definition.dataset);
 
-  const safe = (column: string) => fetchDistinctValues(definition.dataset, column, from, to).catch(() => [] as string[]);
-
-  const [customers, ...companyLists] = await Promise.all([
-    customerKey ? safe(customerKey) : Promise.resolve([] as string[]),
-    ...companyKeys.map((key) => safe(key))]
-  );
-  const companies = [...new Set(companyLists.flat())].sort((a, b) => a.localeCompare(b));
+  const facets = await fetchPeriodFacets(definition.dataset, from, to).catch(() => ({}) as Record<string, string[]>);
+  const customers = customerKey ? facets[customerKey] ?? [] : [];
+  const companies = [...new Set(companyKeys.flatMap((key) => facets[key] ?? []))].sort((a, b) => a.localeCompare(b));
   return { customers, companies };
+}
+
+/** Requests that are running right now, so the drop-downs that need the same data share ONE database scan. */
+const facetRequests = new Map<string, Promise<Record<string, string[]>>>();
+
+/**
+ * Type + Customer + Company lists of a dataset in a period, read with one scan of the view (POST /reports/facets).
+ * Several drop-downs asking at the same moment share the same request.
+ */
+export function fetchPeriodFacets(
+  dataset: ReportDefinition['dataset'],
+  dateFrom?: string,
+  dateTo?: string
+): Promise<Record<string, string[]>> {
+  const columns = [
+  ...new Set(
+    [
+    dataset === 'mfgQuick' || dataset === 'inventoryQuick' ? 'type' : '',
+    customerKeyFor(dataset) ?? '',
+    ...companyKeysFor(dataset)].
+    filter(Boolean)
+  )];
+
+  if (columns.length === 0) return Promise.resolve({});
+  const key = `${dataset}|${dateFrom ?? ''}|${dateTo ?? ''}`;
+  const running = facetRequests.get(key);
+  if (running) return running;
+  const request = http<{ values: Record<string, string[]> }>('/reports/facets', {
+    method: 'POST',
+    body: JSON.stringify({ dataset, columns, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }),
+    timeoutMs: 330_000
+  }).
+  then((r) => r.values).
+  finally(() => facetRequests.delete(key));
+  facetRequests.set(key, request);
+  return request;
 }
 
 
@@ -430,7 +463,8 @@ export async function fetchDistinctValues(
 ): Promise<string[]> {
   const result = await http<{ values: string[] }>('/reports/distinct-values', {
     method: 'POST',
-    body: JSON.stringify({ dataset, column, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined })
+    body: JSON.stringify({ dataset, column, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }),
+    timeoutMs: 120_000
   });
   return result.values;
 }

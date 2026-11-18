@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { QueryResultMeta, ReportDefinition, Row } from '../types/erp';
-import { fetchDatasetRows, fetchDistinctValues, fetchScopeOptions, fetchTableRows } from '../services/erpApi';
+import { fetchDatasetRows, fetchPeriodFacets, fetchScopeOptions, fetchTableRows } from '../services/erpApi';
 import { useErpConnection } from '../contexts/ErpConnectionContext';
 import { customerCodesOf, emptyScope, hasCompanyFilter, hasCustomerFilter, type ReportScope } from '../utils/scope';
 
@@ -123,10 +123,10 @@ export function useTypeOptions(definition: ReportDefinition, refreshKey: unknown
       return undefined;
     }
     let cancelled = false;
-    fetchDistinctValues(definition.dataset, 'type', definition.dateFrom, definition.dateTo).
-    then((values) => {
+    fetchPeriodFacets(definition.dataset, definition.dateFrom, definition.dateTo).
+    then((facets) => {
       if (cancelled) return;
-      setOptions(values);
+      setOptions(facets.type ?? []);
       setLoadedFor(periodKey);
     }).
     catch(() => {

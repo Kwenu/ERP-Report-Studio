@@ -74,7 +74,7 @@ export function buildMssqlConfig(c: PlainCredentials): sql.config {
     user: c.username ?? undefined,
     password: c.password ?? undefined,
     connectionTimeout: 15_000,
-    requestTimeout: 60_000,
+    requestTimeout: env.erp.queryTimeoutMs,
     pool: { max: 10, min: 0, idleTimeoutMillis: 30_000 },
     options: {
       encrypt: env.erp.encrypt,

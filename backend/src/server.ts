@@ -15,6 +15,9 @@ async function main() {
     console.log(`✅ ERP Report Studio backend listening on http://localhost:${env.port}`);
     console.log(`   API base: http://localhost:${env.port}/api/v1`);
   });
+  // Large report periods can run for minutes; do not let Node cut the HTTP request off (default 5 min).
+  server.requestTimeout = 0;
+  server.headersTimeout = 65_000;
   server.on('error', (err: NodeJS.ErrnoException) => {
     console.error(err.code === 'EADDRINUSE' ? `❌ Port ${env.port} is already in use (another backend still running?).` : err);
     process.exit(1);
